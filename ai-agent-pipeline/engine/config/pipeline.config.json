@@ -1,0 +1,67 @@
+{
+  "stages": [
+    { "id": "01-planning",  "order": 1,  "name": "기획 / 요구사항 분석", "role": "기획자",     "required": true,  "humanCheckpoint": "requirements", "dependsOn": [] },
+    { "id": "03-design",    "order": 2,  "name": "분석 / 설계",         "role": "설계",       "required": true,  "humanCheckpoint": "design",       "dependsOn": ["01-planning"] },
+    { "id": "04-pl",        "order": 3,  "name": "PL / 기술리더",       "role": "PL(시니어)", "required": true,  "humanCheckpoint": null,           "dependsOn": ["03-design"] },
+    { "id": "05-dev-db",    "order": 4,  "name": "개발 · DB",           "role": "개발",       "required": true,  "humanCheckpoint": null,           "dependsOn": ["04-pl"] },
+    { "id": "05-dev-be",    "order": 5,  "name": "개발 · 백엔드",       "role": "개발",       "required": true,  "humanCheckpoint": null,           "dependsOn": ["05-dev-db"] },
+    { "id": "05-dev-fe",    "order": 6,  "name": "개발 · 프론트",       "role": "개발",       "required": true,  "humanCheckpoint": null,           "dependsOn": ["05-dev-be"] },
+    { "id": "06-review",    "order": 7,  "name": "코드 리뷰",           "role": "리뷰",       "required": true,  "humanCheckpoint": null,           "dependsOn": ["05-dev-fe"] },
+    { "id": "07-unittest",  "order": 8,  "name": "단위 테스트",         "role": "테스트",     "required": true,  "humanCheckpoint": null,           "dependsOn": ["06-review"] },
+    { "id": "08-e2e",       "order": 9,  "name": "통합 / E2E 테스트",   "role": "테스트",     "required": false, "humanCheckpoint": null,           "dependsOn": ["07-unittest"] },
+    { "id": "09-security",  "order": 10, "name": "보안 검토",           "role": "보안",       "required": false, "humanCheckpoint": null,           "dependsOn": ["08-e2e"] },
+    { "id": "10-docs",      "order": 11, "name": "문서화",             "role": "문서",       "required": false, "humanCheckpoint": null,           "dependsOn": ["09-security"] },
+    { "id": "11-devops",    "order": 12, "name": "DevOps / 배포",       "role": "배포",       "required": false, "humanCheckpoint": null,           "dependsOn": ["10-docs"] },
+    { "id": "12-delivery",  "order": 13, "name": "납품 패키징",         "role": "납품",       "required": true,  "humanCheckpoint": "delivery",     "dependsOn": ["11-devops"] }
+  ],
+  "presets": {
+    "full-delivery": {
+      "label": "전체 납품용",
+      "description": "12단계 전체 실행",
+      "enabledStages": ["01-planning","03-design","04-pl","05-dev-db","05-dev-be","05-dev-fe","06-review","07-unittest","08-e2e","09-security","10-docs","11-devops","12-delivery"]
+    },
+    "standard": {
+      "label": "표준 개발",
+      "description": "보안 검토만 제외",
+      "enabledStages": ["01-planning","03-design","04-pl","05-dev-db","05-dev-be","05-dev-fe","06-review","07-unittest","08-e2e","10-docs","11-devops","12-delivery"]
+    },
+    "quick-prototype": {
+      "label": "빠른 프로토타입",
+      "description": "기획→설계→개발→단위테스트만",
+      "enabledStages": ["01-planning","03-design","04-pl","05-dev-db","05-dev-be","05-dev-fe","06-review","07-unittest"]
+    },
+    "existing-maintenance": {
+      "label": "기존 프로젝트 수정 (유지보수)",
+      "description": "기획(변경분석)→설계→PL→개발→리뷰→테스트. 문서화/배포/납품패키징은 제외 (필요시 커스텀에서 추가)",
+      "enabledStages": ["01-planning","03-design","04-pl","05-dev-db","05-dev-be","05-dev-fe","06-review","07-unittest"]
+    }
+  },
+  "dependencyWarnings": [
+    { "if": { "stage": "11-devops", "on": true }, "andMissing": "09-security", "message": "보안검토가 꺼진 상태로 배포됩니다 — 취약점 미검증 상태로 배포될 수 있습니다." },
+    { "if": { "stage": "12-delivery", "on": true }, "andMissing": "10-docs", "message": "문서화가 꺼져 있어 요구사항 추적 매트릭스가 불완전할 수 있습니다." }
+  ],
+  "retry": {
+    "tier1MaxRetries": 5,
+    "escalateAfterConsecutiveFailures": 3
+  },
+  "usage": {
+    "sessionWindowHours": 5,
+    "weeklyWindowDays": 7
+  },
+  "models": {
+    "_comment": "작업 성격에 따라 모델을 매핑: 단순 조회/검색=haiku, 코드수정/구현=sonnet, 설계·복잡한 판단=opus. 값은 claude 터미널에서 /model 로 확인 가능한 이름 사용 (haiku/sonnet/opus). ⚠️ TO VERIFY: --model 플래그가 이 별칭을 그대로 받는지, 계정 플랜(Pro/Max)에 따라 opus 사용 가능 여부가 다를 수 있으니 로컬에서 `claude` 실행 후 `/model`로 실제 사용 가능한 모델 확인할 것.",
+    "default": "sonnet",
+    "planning": "sonnet",
+    "design": "opus",
+    "pl": "opus",
+    "dev": "sonnet",
+    "review": "haiku",
+    "test": "sonnet",
+    "security": "opus",
+    "docs": "sonnet",
+    "devops": "sonnet",
+    "delivery": "haiku",
+    "pm": "opus",
+    "cto": "sonnet"
+  }
+}

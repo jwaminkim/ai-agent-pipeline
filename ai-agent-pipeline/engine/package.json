@@ -1,0 +1,14 @@
+{
+  "name": "ai-agent-pipeline-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "멀티 에이전트 개발 파이프라인 오케스트레이터 (Next.js 대시보드와 별도 프로세스)",
+  "main": "orchestrator.js",
+  "scripts": {
+    "start": "node orchestrator.js",
+    "demo": "cross-env CLAUDE_DRY_RUN=1 node orchestrator.js"
+  },
+  "dependencies": {
+    "cross-env": "^7.0.3"
+  }
+}

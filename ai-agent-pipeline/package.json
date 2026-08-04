@@ -1,0 +1,16 @@
+{
+  "name": "ai-agent-pipeline",
+  "version": "1.0.0",
+  "private": true,
+  "description": "멀티 에이전트 개발 파이프라인 - Next.js 대시보드 + 독립 오케스트레이터 엔진",
+  "scripts": {
+    "install:all": "npm install && npm install --prefix dashboard && npm install --prefix engine",
+    "dashboard": "npm run dev --prefix dashboard",
+    "engine": "npm run start --prefix engine",
+    "engine:demo": "npm run demo --prefix engine",
+    "dev": "concurrently -n DASHBOARD,ENGINE -c blue,green \"npm run dashboard\" \"npm run engine:demo\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

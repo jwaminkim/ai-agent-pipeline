@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>멀티 에이전트 개발 파이프라인</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0B0E14;
+    --panel:#12161F;
+    --panel-alt:#171C27;
+    --panel-raise:#1B2130;
+    --line:#232938;
+    --text:#E7EAF0;
+    --muted:#8992A6;
+    --muted-dim:#5D6478;
+    --flow:#5B8DEF;
+    --flow-dim:#5B8DEF33;
+    --human:#E8A33D;
+    --human-dim:#E8A33D26;
+    --risk:#E1573F;
+    --risk-dim:#E1573F22;
+    --pm:#59C3B4;
+    --pm-dim:#59C3B426;
+    --ok:#6FCF7E;
+    --ok-dim:#6FCF7E22;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, #1a2740 0%, transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 20%, #17332f 0%, transparent 55%),
+      var(--ink);
+    color:var(--text);
+    font-family:'Noto Sans KR', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.6;
+  }
+  .mono{font-family:'JetBrains Mono', monospace;}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:56px 28px 120px;}
+
+  header{margin-bottom:40px;}
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;letter-spacing:0.14em;color:var(--flow);
+    text-transform:uppercase;display:flex;align-items:center;gap:10px;margin-bottom:18px;
+  }
+  .eyebrow::before{content:"";width:22px;height:1px;background:var(--flow);}
+  h1{font-size:34px;font-weight:900;letter-spacing:-0.01em;margin:0 0 14px;max-width:760px;}
+  header p{color:var(--muted);font-size:15px;max-width:640px;margin:0;}
+
+  /* ---------- tabs ---------- */
+  .tabbar{
+    display:flex;gap:4px;margin:36px 0 44px;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .tab-btn{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;letter-spacing:0.02em;
+    background:none;border:none;color:var(--muted-dim);
+    padding:12px 20px;cursor:pointer;
+    display:flex;align-items:center;gap:9px;
+    border-bottom:2px solid transparent;
+    transition:color .15s ease, border-color .15s ease;
+  }
+  .tab-btn .n{
+    font-size:11px;width:20px;height:20px;border-radius:5px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--panel-alt);color:var(--muted-dim);
+    transition:background .15s ease, color .15s ease;
+  }
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--text);border-bottom-color:var(--flow);}
+  .tab-btn.active .n{background:var(--flow-dim);color:var(--flow);}
+
+  .panel{display:none;}
+  .panel.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  .section-sub{color:var(--muted-dim);font-size:13.5px;margin:0 0 36px;}
+
+  /* ---------- legend ---------- */
+  .legend{display:flex;flex-wrap:wrap;gap:22px;margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid var(--line);}
+  .legend-item{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);}
+  .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .dot.flow{background:var(--flow);} .dot.human{background:var(--human);}
+  .dot.pm{background:var(--pm);} .dot.risk{background:var(--risk);} .dot.ok{background:var(--ok);}
+
+  /* ---------- agent selection ---------- */
+  .select-bar{
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:16px 22px;margin-bottom:28px;
+  }
+  .select-bar .count{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--flow);}
+  .select-bar .count b{color:var(--text);font-size:15px;}
+  .select-bar .actions{display:flex;gap:8px;}
+  .select-bar button{
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;
+    background:var(--panel-alt);border:1px solid var(--line);color:var(--muted);
+    padding:7px 14px;border-radius:7px;cursor:pointer;transition:all .15s ease;
+  }
+  .select-bar button:hover{border-color:var(--flow);color:var(--text);}
+
+  .agent-check{
+    display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
+    font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-dim);
+  }
+  .agent-check input[type="checkbox"]{
+    appearance:none;width:16px;height:16px;border-radius:4px;
+    border:1.5px solid var(--muted-dim);background:var(--panel-alt);
+    cursor:pointer;position:relative;flex-shrink:0;transition:all .15s ease;
+  }
+  .agent-check input[type="checkbox"]:checked{background:var(--flow);border-color:var(--flow);}
+  .agent-check input[type="checkbox"]:checked::after{
+    content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:11px;color:#0B0E14;font-weight:700;
+  }
+  .agent-check input[type="checkbox"]:disabled{opacity:.5;cursor:not-allowed;}
+  .agent-check.required{color:var(--human);}
+
+  .stage-row.excluded .card{opacity:.4;filter:grayscale(.6);}
+  .stage-row.excluded .node{border-color:var(--muted-dim);color:var(--muted-dim);}
+
+  .dep-warning{
+    margin-top:12px;padding:9px 14px;background:var(--risk-dim);border-left:2px solid var(--risk);
+    border-radius:0 6px 6px 0;font-size:12px;color:#F0A99C;display:none;
+  }
+  .dep-warning.show{display:block;}
+
+  /* ---------- pipeline ---------- */
+  .pipeline{position:relative;margin-top:8px;}
+  .stage-row{position:relative;display:grid;grid-template-columns:170px 1fr;gap:0;}
+  .rail-col{position:relative;display:flex;justify-content:center;}
+  .rail-col .spine{position:absolute;top:0;bottom:0;left:50%;width:2px;background:var(--line);transform:translateX(-50%);}
+  .stage-row:first-child .rail-col .spine{top:50%;}
+  .stage-row:last-child .rail-col .spine{bottom:50%;}
+  .node{
+    position:relative;z-index:2;width:44px;height:44px;border-radius:50%;
+    background:var(--panel-raise);border:2px solid var(--flow);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--flow);
+    margin:32px auto;flex-shrink:0;
+  }
+  .pm-bracket{position:absolute;left:calc(50% - 1px);width:3px;background:var(--pm);border-radius:3px;opacity:0.85;}
+  .pm-label{position:absolute;left:calc(50% + 14px);top:50%;transform:translateY(-50%);writing-mode:vertical-rl;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;color:var(--pm);white-space:nowrap;}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 26px;margin:14px 0 14px 28px;position:relative;}
+  .card::before{content:"";position:absolute;left:-28px;top:50%;width:28px;height:1px;background:var(--line);}
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px;}
+  .card-title{display:flex;align-items:center;gap:10px;}
+  .card-title h3{margin:0;font-size:16.5px;font-weight:700;}
+  .tag{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.06em;padding:3px 8px;border-radius:5px;text-transform:uppercase;}
+  .tag.role{background:var(--flow-dim);color:var(--flow);}
+  .tag.seq{background:var(--ok-dim);color:var(--ok);}
+
+  .card-body{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  @media(max-width:760px){.card-body{grid-template-columns:1fr;}}
+  .field-label{font-size:11px;color:var(--muted-dim);text-transform:uppercase;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;}
+  .field-value{font-size:13.5px;color:var(--muted);margin:0;}
+  .field-value b{color:var(--text);font-weight:500;}
+
+  .loop-note{margin-top:14px;padding:10px 14px;background:var(--risk-dim);border-left:2px solid var(--risk);border-radius:0 6px 6px 0;font-size:12.5px;color:#F0A99C;display:flex;gap:8px;align-items:flex-start;}
+  .loop-note .icon{font-family:'JetBrains Mono',monospace;flex-shrink:0;color:var(--risk);}
+  .human-note{margin-top:14px;padding:10px 14px;background:var(--human-dim);border-left:2px solid var(--human);border-radius:0 6px 6px 0;font-size:12.5px;color:#F0CD9A;}
+
+  .parallel-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:14px;}
+  @media(max-width:760px){.parallel-grid{grid-template-columns:1fr;}}
+  .mini{background:var(--panel-alt);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-size:12.5px;}
+  .mini .mini-h{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ok);margin-bottom:4px;letter-spacing:0.05em;}
+  .seq-note{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;color:var(--muted-dim);font-family:'JetBrains Mono',monospace;flex-wrap:wrap;}
+  .seq-note .arrow{color:var(--ok);}
+
+  /* ---------- routing tab ---------- */
+  .tier-table{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:12.8px;}
+  .tier-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted-dim);padding:10px 14px;border-bottom:1px solid var(--line);}
+  .tier-table td{padding:13px 14px;border-bottom:1px solid var(--line);color:var(--muted);vertical-align:top;}
+  .tier-badge{font-family:'JetBrains Mono',monospace;font-size:10.5px;padding:4px 10px;border-radius:20px;white-space:nowrap;display:inline-block;}
+  .tier-badge.t1{background:var(--ok-dim);color:var(--ok);}
+  .tier-badge.t2{background:var(--flow-dim);color:var(--flow);}
+  .tier-badge.t3{background:var(--human-dim);color:var(--human);}
+  .routing-wrap{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:40px;}
+  .routing-grid{display:grid;grid-template-columns:280px 1fr;gap:40px;align-items:center;}
+  @media(max-width:820px){.routing-grid{grid-template-columns:1fr;}}
+  .routing-copy h3{font-size:20px;margin:0 0 12px;}
+  .routing-copy p{color:var(--muted);font-size:13.5px;margin:0;}
+  .tree{display:flex;flex-direction:column;gap:0;}
+  .tree-root{align-self:flex-start;background:var(--pm-dim);border:1px solid var(--pm);color:var(--pm);font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:10px 16px;border-radius:8px;}
+  .branches{display:flex;flex-direction:column;margin-left:20px;border-left:2px solid var(--line);}
+  .branch{display:flex;align-items:center;gap:14px;padding:14px 0 14px 24px;position:relative;}
+  .branch::before{content:"";position:absolute;left:0;top:50%;width:20px;height:2px;background:var(--line);}
+  .branch-tag{font-family:'JetBrains Mono',monospace;font-size:11px;padding:5px 10px;border-radius:6px;white-space:nowrap;flex-shrink:0;}
+  .branch-tag.bug{background:var(--flow-dim);color:var(--flow);}
+  .branch-tag.design{background:var(--risk-dim);color:var(--risk);}
+  .branch-tag.req{background:var(--human-dim);color:var(--human);}
+  .branch-dest{font-size:13px;color:var(--muted);}
+  .branch-dest b{color:var(--text);}
+
+  /* ---------- cross-cutting ---------- */
+  .cc-grid{display:grid;grid-template-columns:repeat(3, 1fr);gap:16px;}
+  @media(max-width:900px){.cc-grid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:600px){.cc-grid{grid-template-columns:1fr;}}
+  .cc-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;}
+  .cc-card .priority{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:12px;}
+  .priority.p1{background:var(--risk-dim);color:var(--risk);}
+  .priority.p2{background:var(--human-dim);color:var(--human);}
+  .priority.p3{background:var(--flow-dim);color:var(--flow);}
+  .cc-card h4{margin:0 0 8px;font-size:14.5px;}
+  .cc-card p{margin:0;font-size:12.8px;color:var(--muted);}
+
+  /* ---------- usage bar (persistent, top) ---------- */
+  .usage-bar{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    margin-bottom:8px;overflow:hidden;
+  }
+  @media(max-width:820px){.usage-bar{grid-template-columns:repeat(2,1fr);}}
+  .usage-item{padding:16px 22px;border-right:1px solid var(--line);}
+  .usage-item:last-child{border-right:none;}
+  .u-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .u-label{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted-dim);}
+  .u-pct{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;}
+  .u-pct.ok{color:var(--ok);} .u-pct.warn{color:var(--human);} .u-pct.danger{color:var(--risk);}
+  .u-track{width:100%;height:5px;background:var(--panel-alt);border-radius:3px;overflow:hidden;margin-bottom:8px;}
+  .u-fill{height:100%;border-radius:3px;}
+  .u-fill.ok{background:var(--ok);} .u-fill.warn{background:var(--human);} .u-fill.danger{background:var(--risk);}
+  .u-sub{font-size:11.5px;color:var(--muted);}
+  .usage-note{
+    display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted-dim);
+    padding:10px 4px 32px;font-family:'JetBrains Mono',monospace;
+  }
+  .usage-note .live-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+  /* ---------- knowledge base tab ---------- */
+  .kb-flow{
+    display:flex;align-items:stretch;gap:0;margin-bottom:40px;flex-wrap:wrap;
+  }
+  .kb-stage{
+    flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:18px 18px;position:relative;
+  }
+  .kb-stage .kb-n{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--pm);margin-bottom:8px;}
+  .kb-stage h4{margin:0 0 6px;font-size:13.5px;}
+  .kb-stage p{margin:0;font-size:11.8px;color:var(--muted);}
+  .kb-arrow{display:flex;align-items:center;justify-content:center;padding:0 6px;color:var(--muted-dim);font-family:'JetBrains Mono',monospace;font-size:18px;}
+  @media(max-width:900px){.kb-flow{flex-direction:column;}.kb-arrow{transform:rotate(90deg);padding:4px;}}
+
+  .kb-compare{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:40px;}
+  @media(max-width:760px){.kb-compare{grid-template-columns:1fr;}}
+  .kb-col{border-radius:12px;padding:20px 22px;border:1px solid var(--line);}
+  .kb-col.good{border-color:var(--ok);}
+  .kb-col.bad{border-color:var(--risk);}
+  .kb-col h4{margin:0 0 12px;font-size:13.5px;display:flex;align-items:center;gap:8px;}
+  .kb-col ul{margin:0;padding-left:18px;}
+  .kb-col li{font-size:12.8px;color:var(--muted);margin-bottom:8px;}
+
+  .kb-example{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:16px;}
+  .kb-example .kb-tag-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+  .kb-example .kb-tag{font-family:'JetBrains Mono',monospace;font-size:10.5px;background:var(--panel-alt);color:var(--muted);padding:3px 9px;border-radius:5px;}
+  .kb-example .kb-body{display:grid;grid-template-columns:80px 1fr;gap:6px 14px;font-size:12.8px;}
+  .kb-example .kb-label{color:var(--muted-dim);font-family:'JetBrains Mono',monospace;font-size:10.5px;padding-top:2px;}
+  .kb-example .kb-val{color:var(--text);}
+
+  /* ---------- issue history tab ---------- */
+  .filter-row{display:flex;gap:8px;margin-bottom:28px;flex-wrap:wrap;}
+  .filter-chip{
+    font-family:'JetBrains Mono',monospace;font-size:12px;
+    padding:7px 16px;border-radius:20px;border:1px solid var(--line);
+    background:var(--panel);color:var(--muted);cursor:pointer;
+  }
+  .filter-chip.active{border-color:var(--flow);color:var(--flow);background:var(--flow-dim);}
+
+  .issue-list{display:flex;flex-direction:column;gap:12px;}
+  .issue-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 22px;}
+  .issue-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+  .issue-time{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-dim);}
+  .issue-stage{font-family:'JetBrains Mono',monospace;font-size:10.5px;background:var(--panel-alt);color:var(--muted);padding:3px 9px;border-radius:5px;}
+  .issue-req{font-family:'JetBrains Mono',monospace;font-size:10.5px;background:var(--flow-dim);color:var(--flow);padding:3px 9px;border-radius:5px;}
+  .issue-class{font-family:'JetBrains Mono',monospace;font-size:10.5px;padding:3px 9px;border-radius:5px;}
+  .issue-class.bug{background:var(--flow-dim);color:var(--flow);}
+  .issue-class.design{background:var(--risk-dim);color:var(--risk);}
+  .issue-class.req{background:var(--human-dim);color:var(--human);}
+  .issue-status{
+    margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10.5px;
+    padding:4px 11px;border-radius:20px;display:flex;align-items:center;gap:6px;
+  }
+  .issue-status.resolved{background:var(--ok-dim);color:var(--ok);}
+  .issue-status.pending{background:var(--human-dim);color:var(--human);}
+  .issue-status.decided{background:var(--pm-dim);color:var(--pm);}
+  .issue-status .sdot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .issue-status.pending .sdot{animation:pulse 1.6s infinite;}
+  .issue-title{font-size:14.5px;font-weight:700;margin-bottom:6px;}
+  .issue-desc{font-size:13px;color:var(--muted);margin-bottom:10px;}
+  .issue-resolution{
+    font-size:12.5px;padding:10px 14px;border-radius:0 6px 6px 0;
+    border-left:2px solid var(--line);background:var(--panel-alt);color:var(--muted);
+  }
+  .issue-resolution b{color:var(--text);}
+
+  /* ---------- agent select tab ---------- */
+  .preset-list{display:flex;flex-direction:column;gap:10px;margin-bottom:36px;}
+  .preset{
+    display:flex;align-items:center;gap:16px;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:16px 20px;
+  }
+  .preset.rec{border-color:var(--flow);}
+  .preset .radio{width:16px;height:16px;border-radius:50%;border:2px solid var(--muted-dim);flex-shrink:0;}
+  .preset.rec .radio{border-color:var(--flow);background:var(--flow-dim);}
+  .preset .p-body{flex:1;}
+  .preset .p-title{font-size:14.5px;font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:8px;}
+  .preset .p-desc{font-size:12.5px;color:var(--muted);}
+  .preset .p-tag{font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--flow-dim);color:var(--flow);padding:2px 8px;border-radius:10px;}
+
+  .custom-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px 28px;}
+  .custom-panel > .p-head{display:flex;align-items:center;justify-content:between;gap:10px;margin-bottom:18px;}
+  .custom-panel h4{margin:0;font-size:15px;}
+  .status-pill{font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;background:var(--human-dim);color:var(--human);margin-left:auto;}
+
+  .check-grid{display:flex;flex-direction:column;gap:2px;}
+  .check-row{
+    display:grid;grid-template-columns:24px 1fr;gap:14px;align-items:center;
+    padding:10px 8px;border-radius:8px;
+  }
+  .check-row:hover{background:var(--panel-alt);}
+  .check-row .cb{width:16px;height:16px;border-radius:4px;border:2px solid var(--muted-dim);}
+  .check-row .cb.on{background:var(--flow);border-color:var(--flow);}
+  .check-row .cb.off{background:transparent;}
+  .check-row .label{font-size:13.5px;}
+  .check-row .warn{
+    font-size:11.5px;color:var(--risk);font-family:'JetBrains Mono',monospace;
+    margin-left:38px;padding:4px 0 8px;
+  }
+
+  /* ---------- CTO architecture tab ---------- */
+  .org-diagram{display:flex;flex-direction:column;align-items:center;gap:0;margin-bottom:44px;}
+  .org-node{
+    padding:14px 26px;border-radius:10px;font-size:13.5px;font-weight:700;
+    display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;
+  }
+  .org-node .sub{font-family:'JetBrains Mono',monospace;font-weight:400;font-size:11px;color:var(--muted);}
+  .org-node.human{background:var(--human-dim);border:1px solid var(--human);color:var(--human);}
+  .org-node.cto{background:var(--pm-dim);border:1px solid var(--pm);color:var(--pm);margin-top:26px;}
+  .org-link{width:2px;height:26px;background:var(--line);}
+  .org-row{display:flex;gap:40px;margin-top:26px;align-items:flex-start;}
+  .org-branch{display:flex;flex-direction:column;align-items:center;}
+  .org-node.pm{background:var(--flow-dim);border:1px solid var(--flow);color:var(--flow);}
+  .org-leaf-row{display:flex;gap:14px;margin-top:22px;flex-wrap:wrap;justify-content:center;max-width:640px;}
+  .org-leaf{
+    background:var(--panel-alt);border:1px solid var(--line);border-radius:8px;
+    padding:8px 14px;font-size:11.5px;color:var(--muted);font-family:'JetBrains Mono',monospace;
+  }
+
+  .compare-table{width:100%;border-collapse:collapse;margin-bottom:40px;font-size:13px;}
+  .compare-table th{
+    text-align:left;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.04em;
+    text-transform:uppercase;color:var(--muted-dim);padding:12px 16px;border-bottom:1px solid var(--line);
+  }
+  .compare-table td{padding:14px 16px;border-bottom:1px solid var(--line);color:var(--muted);vertical-align:top;}
+  .compare-table tr td:first-child{color:var(--text);font-weight:500;white-space:nowrap;}
+  .compare-table .win{color:var(--ok);}
+
+  .flow-strip{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px 26px;
+  }
+  .flow-step{
+    background:var(--panel-alt);border:1px solid var(--line);border-radius:8px;
+    padding:10px 16px;font-size:12.5px;color:var(--text);
+  }
+  .flow-step.key{border-color:var(--pm);color:var(--pm);}
+  .flow-arrow{color:var(--muted-dim);font-family:'JetBrains Mono',monospace;}
+
+  /* ---------- implementation log tab ---------- */
+  .impl-item{
+    background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--ok);
+    border-radius:10px;padding:16px 20px;margin-bottom:12px;
+  }
+  .impl-item .impl-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+  .impl-item h4{margin:0;font-size:14.5px;}
+  .impl-item .before{color:var(--risk);font-size:12.5px;margin-bottom:4px;}
+  .impl-item .after{color:var(--muted);font-size:12.5px;}
+  .impl-item .file-tag{font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--panel-alt);color:var(--muted-dim);padding:2px 8px;border-radius:4px;}
+
+  /* ---------- decisions tab ---------- */
+  .decision-block{margin-bottom:56px;}
+  .decision-head{display:flex;align-items:center;gap:10px;margin-bottom:20px;}
+  .decision-head h3{font-size:17px;margin:0;}
+  .decision-head .badge{font-family:'JetBrains Mono',monospace;font-size:11px;padding:3px 10px;border-radius:20px;}
+  .badge.confirmed{background:var(--ok-dim);color:var(--ok);}
+  .badge.pending{background:var(--risk-dim);color:var(--risk);}
+
+  .confirmed-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+  @media(max-width:760px){.confirmed-grid{grid-template-columns:1fr;}}
+  .confirmed-card{background:var(--panel);border:1px solid var(--ok);border-left-width:3px;border-radius:10px;padding:18px 20px;}
+  .confirmed-card .q{font-size:12px;color:var(--muted-dim);font-family:'JetBrains Mono',monospace;margin-bottom:6px;}
+  .confirmed-card .a{font-size:14.5px;font-weight:700;color:var(--ok);margin-bottom:8px;}
+  .confirmed-card .note{font-size:12.5px;color:var(--muted);margin:0;}
+
+  .check-list{display:flex;flex-direction:column;gap:12px;}
+  .check-item{
+    background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--risk);
+    border-radius:10px;padding:16px 20px;display:grid;grid-template-columns:170px 1fr;gap:18px;align-items:start;
+  }
+  @media(max-width:760px){.check-item{grid-template-columns:1fr;}}
+  .check-item .tier{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:var(--risk);}
+  .check-item h4{margin:4px 0 0;font-size:14px;}
+  .check-item p{margin:0;font-size:12.8px;color:var(--muted);}
+
+  footer{margin-top:80px;padding-top:28px;border-top:1px solid var(--line);color:var(--muted-dim);font-size:12px;font-family:'JetBrains Mono',monospace;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Multi-Agent Development Pipeline</div>
+    <h1>기획부터 납품까지, AI 에이전트가 맡는 전체 개발 워크플로우</h1>
+    <p>파이프라인 구조, PM 라우팅 로직, 교차 고려사항, 그리고 실제 구현 전 확정된 결정사항과 확인이 필요한 항목까지 한 파일에 정리했습니다.</p>
+  </header>
+
+  <div class="usage-bar">
+    <div class="usage-item">
+      <div class="u-top"><span class="u-label">5시간 세션</span><span class="u-pct warn" id="u-5h-pct">62%</span></div>
+      <div class="u-track"><div class="u-fill warn" style="width:62%"></div></div>
+      <div class="u-sub" id="u-5h-sub">리셋까지 1시간 48분</div>
+    </div>
+    <div class="usage-item">
+      <div class="u-top"><span class="u-label">주간 한도</span><span class="u-pct ok" id="u-week-pct">34%</span></div>
+      <div class="u-track"><div class="u-fill ok" style="width:34%"></div></div>
+      <div class="u-sub" id="u-week-sub">리셋까지 4일</div>
+    </div>
+    <div class="usage-item">
+      <div class="u-top"><span class="u-label">컨텍스트 윈도우</span><span class="u-pct ok" id="u-ctx-pct">18%</span></div>
+      <div class="u-track"><div class="u-fill ok" style="width:18%"></div></div>
+      <div class="u-sub" id="u-ctx-sub">현재 활성 에이전트 기준</div>
+    </div>
+    <div class="usage-item">
+      <div class="u-top"><span class="u-label">현재 실행 단계</span><span class="u-pct" style="color:var(--flow);">05</span></div>
+      <div class="u-track"><div class="u-fill" style="width:100%;background:var(--flow);"></div></div>
+      <div class="u-sub" id="u-stage-sub">개발 에이전트 · 백엔드</div>
+    </div>
+  </div>
+  <div class="usage-note"><span class="live-dot"></span>로컬 세션 상태(statusline) 기반 · 별도 /usage 호출 없음 · 예시 데이터 — 실 구현 방식은 06번 탭 참고</div>
+
+  <div class="tabbar">
+    <button class="tab-btn active" data-tab="pipeline"><span class="n">01</span>파이프라인</button>
+    <button class="tab-btn" data-tab="routing"><span class="n">02</span>라우팅 로직</button>
+    <button class="tab-btn" data-tab="crosscutting"><span class="n">03</span>교차 고려사항</button>
+    <button class="tab-btn" data-tab="agentselect"><span class="n">04</span>에이전트 선택 UI</button>
+    <button class="tab-btn" data-tab="ctoarch"><span class="n">05</span>CTO 아키텍처</button>
+    <button class="tab-btn" data-tab="decisions"><span class="n">06</span>결정사항 &amp; 확인필요</button>
+    <button class="tab-btn" data-tab="issuehistory"><span class="n">07</span>이슈 히스토리</button>
+    <button class="tab-btn" data-tab="knowledgebase"><span class="n">08</span>지식 베이스 축적</button>
+    <button class="tab-btn" data-tab="implementation"><span class="n">09</span>구현 반영사항</button>
+  </div>
+
+  <!-- ============ TAB 1: PIPELINE ============ -->
+  <section class="panel active" id="tab-pipeline">
+    <p class="section-sub">위에서 아래로 순서대로 진행되며, 테스트 실패는 PM 에이전트를 거쳐 원인에 맞는 단계로 되돌아갑니다.</p>
+    <div class="legend">
+      <div class="legend-item"><span class="dot flow"></span>파이프라인 단계 (에이전트)</div>
+      <div class="legend-item"><span class="dot human"></span>사람 승인 체크포인트</div>
+      <div class="legend-item"><span class="dot pm"></span>PM 에이전트 감독 범위</div>
+      <div class="legend-item"><span class="dot risk"></span>실패 시 되돌림(rollback) 경로</div>
+      <div class="legend-item"><span class="dot ok"></span>순차 실행 확정 구간</div>
+    </div>
+
+    <div class="select-bar">
+      <div class="count">이번 작업에 선택된 에이전트 <b id="selCount">11</b> / 11</div>
+      <div class="actions">
+        <button type="button" id="btnAll">전체 선택</button>
+        <button type="button" id="btnNone">선택 해제 (필수 제외)</button>
+      </div>
+    </div>
+
+    <div class="pipeline">
+
+      <div class="stage-row" id="row-01">
+        <div class="rail-col"><div class="spine"></div><div class="node">01</div></div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><h3>기획 / 요구사항 분석 에이전트</h3></div><label class="agent-check required"><input type="checkbox" checked disabled>필수</label><span class="tag role">기획자</span></div>
+          <div class="card-body">
+            <div><div class="field-label">역할</div><p class="field-value">스토리보드 · 요구사항 문서를 파싱해 <b>REQ-ID</b>를 부여, 비즈니스 의도 파악. 모호한 부분은 질문 리스트로 정리.</p></div>
+            <div><div class="field-label">유심히 볼 부분</div><p class="field-value">업로드 문서 내 <b>프롬프트 인젝션</b> 가능성 — 최소 권한 원칙 적용.</p></div>
+          </div>
+          <div class="human-note">◆ 사람 승인 ① — 요구사항 확정 (질문 리스트 답변 포함)</div>
+        </div>
+      </div>
+
+      <div class="stage-row">
+        <div class="rail-col"><div class="spine"></div><div class="pm-bracket" style="top:0;height:100%;"></div><div class="node" style="border-color:var(--pm);color:var(--pm);">PM</div><div class="pm-label">PM 감독 범위 · 03 → 11</div></div>
+        <div class="card" style="border-color:var(--pm);">
+          <div class="card-head"><div class="card-title"><h3>PM(관리자) 에이전트</h3></div><span class="tag" style="background:var(--pm-dim);color:var(--pm);">상시 감독</span></div>
+          <div class="card-body">
+            <div><div class="field-label">역할</div><p class="field-value">일정 · 우선순위 관리, 승인 게이트 판단, 재시도 상한 관리, <b>중앙 사용량 예산 관리</b>, 변경 요청 영향 범위 분석 후 재라우팅.</p></div>
+            <div><div class="field-label">유심히 볼 부분</div><p class="field-value">테스트 실패 시 구현 버그 / 설계 결함 / 요구사항 문제를 분류 (02번 탭 참고).</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-row" id="row-03">
+        <div class="rail-col"><div class="spine"></div><div class="pm-bracket" style="top:0;height:100%;"></div><div class="node">03</div></div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><h3>분석 / 설계 에이전트</h3></div><label class="agent-check"><input type="checkbox" class="agent-toggle" data-stage="03" data-dep="01" checked>포함</label><span class="tag role">설계</span></div>
+          <div class="card-body">
+            <div><div class="field-label">역할</div><p class="field-value">기술 스택 제약 하 아키텍처 · API · DB 스키마 설계. 각 요소를 REQ-ID와 매핑.</p></div>
+            <div><div class="field-label">유심히 볼 부분</div><p class="field-value">개발 중 설계 결함 발견 시 <b>이 단계로 되돌아오는 경로</b> 필수.</p></div>
+          </div>
+          <div class="human-note">◆ 사람 승인 ② — 설계 확정 (변경분 + 리스크 요약만 검토)</div>
+          <div class="dep-warning" data-warn-for="03">⚠ 선행 단계인 <b>기획/요구사항 분석</b>이 제외되어 있습니다.</div>
+        </div>
+      </div>
+
+      <div class="stage-row" id="row-04">
+        <div class="rail-col"><div class="spine"></div><div class="pm-bracket" style="top:0;height:100%;"></div><div class="node">04</div></div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><h3>PL / 기술리더 에이전트</h3></div><label class="agent-check"><input type="checkbox" class="agent-toggle" data-stage="04" data-dep="03" checked>포함</label><span class="tag role">PL(시니어)</span></div>
+          <div class="card-body">
+            <div><div class="field-label">역할</div><p class="field-value"><b>인터페이스 계약</b>(API 스펙, 데이터 모델) 확정 후 개발 작업 순서대로 분배. 산출물 통합 검토.</p></div>
+            <div><div class="field-label">유심히 볼 부분</div><p class="field-value">계약 없이 개발 시작하면 나중에 어긋나는 게 가장 흔한 실패 지점.</p></div>
+          </div>
+          <div class="dep-warning" data-warn-for="04">⚠ 선행 단계인 <b>분석/설계</b>가 제외되어 있습니다.</div>
+        </div>
+      </div>
+
+      <div class="stage-row" id="row-05">
+        <div class="rail-col"><div class="spine"></div><div class="pm-bracket" style="top:0;height:100%;"></div><div class="node">05</div></div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><h3>개발 에이전트</h3></div><label class="agent-check"><input type="checkbox" class="agent-toggle" data-stage="05" data-dep="04" checked>포함</label><span class="tag seq">순차 실행 확정</span></div>
+          <div class="card-body">
+            <div><div class="field-label">역할</div><p class="field-value">인터페이스 계약 기준 코드 작성. 커밋 · 주석에 REQ-ID 태깅.</p></div>
+            <div><div class="field-label">유심히 볼 부분</div><p class="field-value">공유 사용량 풀 충돌 위험을 피하기 위해 <b>동시 병렬 대신 순차 실행으로 확정</b>.</p></div>
+          </div>
+          <div class="parallel-grid">
+            <div class="mini"><div class="mini-h">1 · DB</div>스키마 우선 확정</div>
+            <div class="mini"><div class="mini-h">2 · BACKEND</div>DB 스키마 기준 API 구현</div>
+            <div class="mini"><div class="mini-h">3 · FRONTEND</div>API 스펙 기준 연동 구현</div>
+          </div>
+          <div class="seq-note">실행 순서 <span class="arrow">→</span> DB <span class="arrow">→</span> 백엔드 <span class="arrow">→</span> 프론트 (완전 순차, 하나의 5시간 사용량 풀을 한 번에 하나씩만 소진)</div>
+          <div class="dep-warning" data-warn-for="05">⚠ 선행 단계인 <b>PL/기술리더</b>가 제외되어 인터페이스 계약 없이 개발이 진행됩니다.</div>
+        </div>
+      </div>
+
+      <div class="stage-row" id="row-06">
+        <div class="rail-col"><div class="spine"></div><div class="pm-bracket" style="top:0;height:100%;"></div><div class="node">06</div></div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><h3>코드 리뷰 에이전트</h3></div><label class="agent-check"><input type="checkbox" class="agent-toggle" data-stage="06" data-dep="05" checked>포함</label><span class="tag role">리뷰</span></div>
+          <div class="card-body">
+            <div><div class="field-label">역할</div><p class="field-value">개별 코드 품질 · 보안 · 컨벤션 검증 + PL과 통합 정합성 최종 검토.</p></div>
+            <div><div class="field-label">유심히 볼 부분</div><p class="field-value"><b>기술 스택 준수 여부</b>를 체크리스트로 명시 검사, 자연어 보고만 신뢰 안 함.</p></div>
+          </div>
+          <div class="dep-warning" data-warn-for="06">⚠ 선행 단계인 <b>개발</b>이 제외되어 리뷰할 산출물이 없습니다.</div>
+        </div>
+      </div>
+
+      <div class="stage-row" id="row-07">
+        <div class="rail-col"><div class="spine"></div><div class="pm-bracket" style="top:0;height:100%;"></div><div class="node">07</div></div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><h3>단위 테스트 에이전트</h3></div><label class="agent-check"><input type="checkbox" class="agent-toggle" data-stage="07" data-dep="06" checked>포함</label><span class="tag role">테스트</span></div>
+          <div class="card-body">
+            <div><div class="field-label">역할</div><p class="field-value">테스트 작성 및 <b>실제 실행</b>. 실행 로그 · 커버리지 리포트로 PM에 보고.</p></div>
+            <div><div class="field-label">유심히 볼 부분</div><p class="field-value">빌드 성공 + 커버리지 기준 + 린트 0건 등 <b>기계적으로 확인 가능한 조건</b>으로만 다음 단계 진행.</p></div>
+          </div>
+          <div class="loop-note"><span class="icon">⟲</span>실패 시 → PM이 원인 분류 후 개발 / 설계 / 기획 에이전트로 재라우팅 (최대 재시도 초과 시 사람 에스컬레이션)</div>
+          <div class="dep-warning" data-warn-for="07">⚠ 선행 단계인 <b>코드 리뷰</b>가 제외되어 리뷰 안 된 코드를 테스트하게 됩니다.</div>
+        </div>
+      </div>
+
+      <div class="stage-row" id="row-08">
+        <div class="rail-col"><div class="spine"></div><div class="pm-bracket" style="top:0;height:100%;"></div><div class="node">08</div></div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><h3>통합 / E2E 테스트 에이전트</h3></div><label class="agent-check"><input type="checkbox" class="agent-toggle" data-stage="08" data-dep="07" checked>포함</label><span class="tag role">테스트</span></div>
+          <div class="card-body">
+            <div><div class="field-label">역할</div><p class="field-value">순차 개발된 프론트 · 백엔드 · DB가 실제로 맞물려 동작하는지 통합 검증.</p></div>
+            <div><div class="field-label">유심히 볼 부분</div><p class="field-value">테스트 환경 · 목 데이터 준비를 DevOps 에이전트와 연계.</p></div>
+          </div>
+          <div class="dep-warning" data-warn-for="08">⚠ 선행 단계인 <b>단위 테스트</b>가 제외되어 있습니다.</div>
+        </div>
+      </div>
+
+      <div class="stage-row" id="row-09">
+        <div class="rail-col"><div class="spine"></div><div class="pm-bracket" style="top:0;height:100%;"></div><div class="node">09</div></div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><h3>보안 검토 에이전트</h3></div><label class="agent-check"><input type="checkbox" class="agent-toggle" data-stage="09" data-dep="08" checked>포함</label><span class="tag role">보안</span></div>
+          <div class="card-body">
+            <div><div class="field-label">역할</div><p class="field-value">취약점 스캔, 인증 · 인가 로직, 민감정보 노출 여부 검증.</p></div>
+            <div><div class="field-label">유심히 볼 부분</div><p class="field-value">의존 라이브러리 <b>라이선스 호환성</b> 스캔 포함.</p></div>
+          </div>
+          <div class="dep-warning" data-warn-for="09">⚠ 선행 단계인 <b>통합/E2E 테스트</b>가 제외되어 있습니다.</div>
+        </div>
+      </div>
+
+      <div class="stage-row" id="row-10">
+        <div class="rail-col"><div class="spine"></div><div class="pm-bracket" style="top:0;height:100%;"></div><div class="node">10</div></div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><h3>문서화 에이전트</h3></div><label class="agent-check"><input type="checkbox" class="agent-toggle" data-stage="10" data-dep="09" checked>포함</label><span class="tag role">문서</span></div>
+          <div class="card-body">
+            <div><div class="field-label">역할</div><p class="field-value">README, API 문서, 배포 가이드 작성. <b>요구사항 추적 매트릭스</b> 완성.</p></div>
+            <div><div class="field-label">유심히 볼 부분</div><p class="field-value">추적 매트릭스 누락 REQ-ID는 이 시점에 발견돼야 함.</p></div>
+          </div>
+          <div class="dep-warning" data-warn-for="10">⚠ 선행 단계인 <b>보안 검토</b>가 제외되어 있습니다.</div>
+        </div>
+      </div>
+
+      <div class="stage-row" id="row-11">
+        <div class="rail-col"><div class="spine"></div><div class="pm-bracket" style="top:0;height:100%;"></div><div class="node">11</div></div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><h3>DevOps / 배포 에이전트</h3></div><label class="agent-check"><input type="checkbox" class="agent-toggle" data-stage="11" data-dep="10" checked>포함</label><span class="tag role">배포</span></div>
+          <div class="card-body">
+            <div><div class="field-label">역할</div><p class="field-value">CI/CD, 스테이징 · 프로덕션 배포, 테스트 환경 프로비저닝, 배포 후 모니터링/롤백 준비.</p></div>
+            <div><div class="field-label">유심히 볼 부분</div><p class="field-value">납품 이후 유지보수를 위한 경량화된 재진입 경로 별도 필요.</p></div>
+          </div>
+          <div class="dep-warning" data-warn-for="11">⚠ 선행 단계인 <b>문서화</b>가 제외되어 있습니다.</div>
+        </div>
+      </div>
+
+      <div class="stage-row" id="row-12">
+        <div class="rail-col"><div class="spine"></div><div class="node">12</div></div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><h3>납품 패키징 에이전트</h3></div><label class="agent-check required"><input type="checkbox" checked disabled>필수</label><span class="tag role">납품</span></div>
+          <div class="card-body">
+            <div><div class="field-label">역할</div><p class="field-value">최종 빌드, 요구사항 추적 매트릭스, 문서 세트를 납품 패키지로 구성.</p></div>
+            <div><div class="field-label">유심히 볼 부분</div><p class="field-value">고객사 · 프로젝트별 컨텍스트 완전 격리 최종 확인.</p></div>
+          </div>
+          <div class="human-note">◆ 사람 승인 ③ — 최종 납품 확인</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ TAB 2: ROUTING ============ -->
+  <section class="panel" id="tab-routing">
+    <p class="section-sub">테스트 실패 시, 같은 오류라도 원인에 따라 되돌아가야 할 단계가 다릅니다. PM 에이전트가 원인을 먼저 분류합니다.</p>
+    <div class="routing-wrap">
+      <div class="routing-grid">
+        <div class="routing-copy">
+          <h3>PM의 실패 분류 로직</h3>
+          <p>원인 분류 없이 계속 개발 단계에서만 재시도하면, 고칠 수 없는 설계·요구사항 문제를 영원히 구현 버그처럼 다루게 됩니다.</p>
+        </div>
+        <div class="tree">
+          <div class="tree-root">테스트 실패 감지</div>
+          <div class="branches">
+            <div class="branch"><span class="branch-tag bug">구현 버그</span><span class="branch-dest">→ <b>개발 에이전트</b>로 재전송 (최대 N회 재시도)</span></div>
+            <div class="branch"><span class="branch-tag design">설계 결함</span><span class="branch-dest">→ <b>설계 · PL 에이전트</b>로 되돌림, 인터페이스 계약 재검토</span></div>
+            <div class="branch"><span class="branch-tag req">요구사항 모호 / 오류</span><span class="branch-dest">→ <b>기획 에이전트</b>로 되돌림, 사람 승인 재요청</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:32px;" class="card" style="margin-left:0;">
+      <div class="card-head"><div class="card-title"><h3>자율 해결 우선 원칙</h3></div><span class="tag" style="background:var(--ok-dim);color:var(--ok);">확정 · 방향성</span></div>
+      <div class="card-body" style="grid-template-columns:1fr;">
+        <p class="field-value">사람에게 묻는 것은 <b>최소화</b>하고, 에이전트들끼리 최대한 자율적으로 해결하는 것을 기본값으로 합니다. 다만 완전히 사람 개입을 없애는 게 아니라, 이슈를 3단계로 나눠 <b>정말 되돌릴 수 없거나 리스크가 큰 경우만</b> 실시간으로 사람에게 갑니다.</p>
+      </div>
+      <table class="tier-table">
+        <thead><tr><th>티어</th><th>해당 이슈</th><th>처리 방식</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="tier-badge t1">TIER 1 · 완전 자율</span></td>
+            <td>구현 버그, 코드 스타일, 컨벤션 위반, 일반적인 기술 이슈</td>
+            <td>사람에게 묻지 않고 에이전트 간 재시도 루프로 즉시 해결 (기존 최대 재시도 상한 적용)</td>
+          </tr>
+          <tr>
+            <td><span class="tier-badge t2">TIER 2 · 가정 후 진행 + 기록</span></td>
+            <td>설계 해석의 모호함, 우선순위 판단, 이미 승인된 설계 범위 내 조정</td>
+            <td>에이전트가 가장 합리적인 가정으로 <b>진행</b>하고 assumptions에 기록 → 사람에게 실시간으로 묻지 않고, 다음 정기 체크포인트(승인①②③)에서 <b>일괄 검토</b></td>
+          </tr>
+          <tr>
+            <td><span class="tier-badge t3">TIER 3 · 즉시 확인 필수</span></td>
+            <td>이미 확정된 요구사항 자체를 뒤집는 경우, 비가역적 변경, 보안 · 법적 리스크, 비용/일정에 큰 영향</td>
+            <td>이 경우에만 CTO를 통해 사람에게 즉시 에스컬레이션 (예외적으로 최소화된 개입)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:32px;" class="card" style="margin-left:0;">
+      <div class="card-head"><div class="card-title"><h3>한도(사용량) 소진 시 라우팅</h3></div><span class="tag" style="background:var(--risk-dim);color:var(--risk);">확인 필요</span></div>
+      <div class="card-body">
+        <div><div class="field-label">5시간 세션 캡</div><p class="field-value">중앙 사용량 관리자가 세션 시작 시각 기준 예상 리셋 시각 계산 → 자동 대기 후 재개.</p></div>
+        <div><div class="field-label">주간 캡</div><p class="field-value">자동 대기 대신 <b>즉시 사람에게 알림</b> — 리셋까지 며칠 걸릴 수 있어 무작정 대기 금지.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 3: CROSS-CUTTING ============ -->
+  <section class="panel" id="tab-crosscutting">
+    <p class="section-sub">특정 단계에 속하지 않고 파이프라인 전체에 적용되는 원칙입니다. 우선순위 순으로 정렬했습니다.</p>
+    <div class="cc-grid">
+      <div class="cc-card"><span class="priority p1">최우선</span><h4>검증 가능한 게이트</h4><p>자연어 보고 대신 실행 로그 · 커버리지 · 빌드 결과 등 기계적으로 확인 가능한 조건으로만 다음 단계 진행.</p></div>
+      <div class="cc-card"><span class="priority p1">최우선</span><h4>프로젝트 · 고객사 격리</h4><p>여러 프로젝트 동시 진행 시 문서 · 코드 · 지식베이스가 프로젝트별로 완전히 격리되도록 초기부터 강제.</p></div>
+      <div class="cc-card"><span class="priority p2">초기 고려</span><h4>프롬프트 인젝션 방어</h4><p>업로드 문서를 읽는 에이전트에게 코드 실행 · 배포 권한을 주지 않는 최소 권한 원칙.</p></div>
+      <div class="cc-card"><span class="priority p2">초기 고려</span><h4>라이선스 검증</h4><p>오픈소스 의존성 라이선스 호환성과 생성 코드의 저작권 · 책임 소재 사전 확인.</p></div>
+      <div class="cc-card"><span class="priority p3">운영 중 보강</span><h4>승인 피로도 관리</h4><p>사람 승인 요청은 "변경분 + 리스크 3가지" 등으로 최소화해 기계적 승인 방지.</p></div>
+      <div class="cc-card"><span class="priority p3">운영 중 보강</span><h4>배포 이후 흐름</h4><p>납품 후 유지보수 요청 시 전체 파이프라인을 처음부터 다시 돌리지 않는 경량 재진입 경로.</p></div>
+      <div class="cc-card"><span class="priority p3">운영 중 보강</span><h4>비용 · 재시도 상한</h4><p>단계별 최대 재시도 횟수와 프로젝트 단위 예산을 정하고, 초과 시 자동 에스컬레이션.</p></div>
+      <div class="cc-card"><span class="priority p3">운영 중 보강</span><h4>변경 관리</h4><p>중간 요구사항 변경 시 추적 매트릭스로 영향 범위를 역추적해 필요한 단계로만 되돌림.</p></div>
+      <div class="cc-card"><span class="priority p3">투입 전 필수</span><h4>파일럿 검증</h4><p>과거 완료 프로젝트를 파이프라인에 다시 돌려 실패율 · 재작업률 · 사람 개입 빈도 측정.</p></div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 4: AGENT SELECT UI ============ -->
+  <section class="panel" id="tab-agentselect">
+    <p class="section-sub">프로젝트/작업마다 필요한 에이전트만 골라 실행할 수 있도록, 프리셋을 기본으로 하고 커스텀은 고급 옵션으로 둡니다. <span style="color:var(--human);">(제안 설계 — 방식 확정 대기)</span></p>
+
+    <div class="preset-list">
+      <div class="preset rec">
+        <div class="radio"></div>
+        <div class="p-body">
+          <div class="p-title">전체 납품용 <span class="p-tag">추천 기본값</span></div>
+          <div class="p-desc">12단계 전체 실행. 고객사에 실제로 납품할 프로젝트.</div>
+        </div>
+      </div>
+      <div class="preset">
+        <div class="radio"></div>
+        <div class="p-body">
+          <div class="p-title">빠른 프로토타입</div>
+          <div class="p-desc">기획 → 설계 → 개발 → 단위테스트만. 보안검토 · 문서화 · 배포 생략.</div>
+        </div>
+      </div>
+      <div class="preset">
+        <div class="radio"></div>
+        <div class="p-body">
+          <div class="p-title">표준 개발</div>
+          <div class="p-desc">12단계 중 보안 검토 단계만 제외.</div>
+        </div>
+      </div>
+      <div class="preset">
+        <div class="radio"></div>
+        <div class="p-body">
+          <div class="p-title">커스텀</div>
+          <div class="p-desc">아래에서 단계별로 직접 선택. 끄는 단계에 의존성이 있으면 경고가 표시됩니다.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="custom-panel">
+      <div class="p-head"><h4>커스텀 선택 (예시 — 보안검토 · 문서화 OFF 상태)</h4><span class="status-pill">의존성 검증 예시</span></div>
+      <div class="check-grid">
+        <div class="check-row"><div class="cb on"></div><div class="label">01 · 기획 / 요구사항 분석</div></div>
+        <div class="check-row"><div class="cb on"></div><div class="label">03 · 분석 / 설계</div></div>
+        <div class="check-row"><div class="cb on"></div><div class="label">04 · PL / 기술리더</div></div>
+        <div class="check-row"><div class="cb on"></div><div class="label">05 · 개발</div></div>
+        <div class="check-row"><div class="cb on"></div><div class="label">06 · 코드 리뷰</div></div>
+        <div class="check-row"><div class="cb on"></div><div class="label">07 · 단위 테스트</div></div>
+        <div class="check-row"><div class="cb on"></div><div class="label">08 · 통합 / E2E 테스트</div></div>
+        <div class="check-row"><div class="cb off"></div><div class="label">09 · 보안 검토</div></div>
+        <div class="check-row"><div class="cb off"></div><div class="label">10 · 문서화</div></div>
+        <div class="warn">⚠ 11번 배포 단계가 켜져 있는데 09 보안검토가 꺼져 있습니다 — 취약점 미검증 상태로 배포될 수 있습니다.</div>
+        <div class="check-row"><div class="cb on"></div><div class="label">11 · DevOps / 배포</div></div>
+        <div class="check-row"><div class="cb on"></div><div class="label">12 · 납품 패키징</div></div>
+        <div class="warn">⚠ 10번 문서화가 꺼져 있어 12번 납품 패키징의 요구사항 추적 매트릭스가 불완전할 수 있습니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 5: CTO ARCHITECTURE ============ -->
+  <section class="panel" id="tab-ctoarch">
+    <p class="section-sub">사람은 CTO 에이전트하고만 대화하고, PM은 내부에서 계속 도는 실무 엔진 역할을 합니다. <span style="color:var(--ok);">(확정)</span></p>
+
+    <div class="org-diagram">
+      <div class="org-node human">사람<span class="sub">유일한 대화 창구</span></div>
+      <div class="org-link"></div>
+      <div class="org-node cto">CTO 에이전트<span class="sub">조회 · 요약 · 승인 중계 전용</span></div>
+      <div class="org-link"></div>
+      <div class="org-node pm">PM 에이전트<span class="sub">상시 운영 · 라우팅 · 재시도</span></div>
+      <div class="org-leaf-row">
+        <div class="org-leaf">기획</div><div class="org-leaf">설계</div><div class="org-leaf">PL</div>
+        <div class="org-leaf">개발</div><div class="org-leaf">리뷰</div><div class="org-leaf">테스트</div>
+        <div class="org-leaf">보안</div><div class="org-leaf">문서화</div><div class="org-leaf">배포</div><div class="org-leaf">납품</div>
+      </div>
+    </div>
+
+    <table class="compare-table">
+      <thead><tr><th>비교 항목</th><th>하나로 합침 (PM=CTO)</th><th class="win">분리 유지 (채택)</th></tr></thead>
+      <tbody>
+        <tr><td>토큰 사용량</td><td>내부 운영 로그가 대화 히스토리에도 계속 쌓여 무거워짐</td><td class="win">요약 상태 카드만 읽어 예측 가능하게 가벼움</td></tr>
+        <tr><td>응답 성격</td><td>구조화 출력과 자연어 대화 톤이 계속 충돌</td><td class="win">역할별로 프롬프트 · 톤 분리 유지</td></tr>
+        <tr><td>장애 격리</td><td>PM 내부 로직 오류 시 대화 창구도 같이 오염</td><td class="win">PM이 막혀도 CTO가 "확인 필요"로 깔끔히 보고</td></tr>
+        <tr><td>동시성</td><td>자동화 루프와 사람 대화가 같은 자원 경합</td><td class="win">PM은 백그라운드 지속 실행, CTO는 즉시 응답</td></tr>
+        <tr><td>구현 복잡도</td><td>결국 내부적으로 또 나눠야 해서 오히려 복잡</td><td class="win">처음부터 나뉘어 있어 각자 단순</td></tr>
+      </tbody>
+    </table>
+
+    <div class="flow-strip">
+      <div class="flow-step">사람이 CTO에게 질문</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step key">각 에이전트 상태 요약 카드 실시간 조회</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">요약만으로 답변</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">"더 자세히" 요청 시</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step key">해당 에이전트 원본 히스토리 드릴다운</div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 4: DECISIONS ============ -->
+  <section class="panel" id="tab-decisions">
+    <p class="section-sub">실제 프로그램 개발을 요청하기 전, 확정된 사항과 검증이 더 필요한 사항을 구분해뒀습니다.</p>
+
+    <div class="decision-block">
+      <div class="decision-head"><h3>확정된 아키텍처 결정</h3><span class="badge confirmed">CONFIRMED</span></div>
+      <div class="confirmed-grid">
+        <div class="confirmed-card">
+          <div class="q">과금 방식</div>
+          <div class="a">Claude Code 구독 (Pro/Max)</div>
+          <p class="note">5시간 롤링 세션 + 주간 캡. Claude Code · claude.ai · Cowork가 같은 사용량 풀 공유.</p>
+        </div>
+        <div class="confirmed-card">
+          <div class="q">개발 에이전트 실행 방식</div>
+          <div class="a">순차 실행 (DB → 백엔드 → 프론트)</div>
+          <p class="note">공유 사용량 풀에서 여러 에이전트가 동시에 소진 경쟁하는 위험을 피하기 위한 선택.</p>
+        </div>
+        <div class="confirmed-card">
+          <div class="q">체크포인트 저장 방식</div>
+          <div class="a">JSON / TXT 파일 기반</div>
+          <p class="note">DB 없이 파일로 진행 상태와 에이전트별 히스토리를 저장.</p>
+        </div>
+        <div class="confirmed-card">
+          <div class="q">에이전트 간 대화 방식</div>
+          <div class="a">에이전트별 히스토리 유지</div>
+          <p class="note">매번 새로 요청하지 않고, 각 에이전트가 이전 대화 맥락을 계속 참고. 단, 누적에 따른 압축 전략 필요.</p>
+        </div>
+        <div class="confirmed-card" style="border-color:var(--human);">
+          <div class="q">프로젝트별 에이전트 선택 <span style="color:var(--human);">· 설계 제안</span></div>
+          <div class="a" style="color:var(--human);">프리셋 + 커스텀 체크박스 (확정 대기)</div>
+          <p class="note">프리셋(전체납품/프로토타입/표준) 기본 제공, 커스텀 선택 시 의존성 경고 표시. 04번 탭 참고 — 방식 자체는 확정, 세부 UX는 확인 필요.</p>
+        </div>
+        <div class="confirmed-card">
+          <div class="q">사람이 대화하는 창구</div>
+          <div class="a">CTO 에이전트 (PM과 분리)</div>
+          <p class="note">PM은 내부 상시 운영 엔진, CTO는 사람 전용 조회 · 요약 · 승인 중계 창구로 역할 분리. 05번 탭 참고.</p>
+        </div>
+        <div class="confirmed-card">
+          <div class="q">사용량 모니터링 방식</div>
+          <div class="a">로컬 세션 로그(JSONL) 직접 파싱</div>
+          <p class="note">/usage는 헤드리스 모드에서 작동하지 않아(공식 확인) 대신 ~/.claude/projects의 실제 로그를 파싱. 파이프라인 시작 시 1회 + 수동 "지금 체크" 버튼. 한도 대비 %는 미공개라 표시 안 하고 원시 토큰 수치만 표시. 09번 탭 참고.</p>
+        </div>
+        <div class="confirmed-card">
+          <div class="q">이슈 히스토리 로그</div>
+          <div class="a">전체 기록 + 자동해결/사람결정 구분</div>
+          <p class="note">자동 해결된 이슈도 패턴 발견을 위해 전부 기록. 사람 결정 이슈는 결정 내용까지 남겨 요구사항 추적 매트릭스와 연동. 07번 탭 참고.</p>
+        </div>
+        <div class="confirmed-card">
+          <div class="q">사람 개입 최소화 원칙</div>
+          <div class="a">3단계 티어 — Tier 3만 즉시 에스컬레이션</div>
+          <p class="note">구현 버그는 완전 자율 해결, 모호함은 가정 후 진행+기록해 정기 체크포인트에서 일괄 검토, 비가역적·고위험 변경만 즉시 사람 확인. 02번 탭 참고.</p>
+        </div>
+        <div class="confirmed-card">
+          <div class="q">프로젝트 간 지식 재사용</div>
+          <div class="a">이슈 히스토리 → 일반화 → 벡터DB 축적</div>
+          <p class="note">고객사 고유 정보는 제거하고 기술 패턴만 저장, 다음 프로젝트 관련 에이전트가 작업 전 조회. 08번 탭 참고. 토큰/시간 절감이 목표.</p>
+        </div>
+        <div class="confirmed-card">
+          <div class="q">역할별 AI 모델 매핑</div>
+          <div class="a">작업 성격에 따라 haiku / sonnet / opus 차등 사용</div>
+          <p class="note">단순 반복 작업엔 가벼운 모델을 써서 비용·속도 최적화. 아래 표 참고. engine/config/pipeline.config.json의 models 섹션에 실제 반영됨.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="routing-wrap" style="margin-bottom:40px;">
+      <h3 style="margin:0 0 6px;font-size:17px;">모델 선택 기준</h3>
+      <p class="section-sub" style="margin-bottom:20px;">작업 성격에 따라 아래 매핑으로 에이전트 모델을 선택합니다. 단순 반복 작업에는 가벼운 모델(haiku/sonnet)을 사용해 비용/속도를 최적화합니다.</p>
+      <table class="compare-table">
+        <thead><tr><th>작업 성격</th><th>모델</th><th>해당 에이전트</th></tr></thead>
+        <tbody>
+          <tr><td>코드/파일 검색, 탐색 (단순 조회)</td><td class="mono" style="color:var(--ok);">haiku</td><td>코드 리뷰(체크리스트 검증), 납품 패키징(기존 산출물 취합)</td></tr>
+          <tr><td>코드 수정, 구현 작업</td><td class="mono" style="color:var(--flow);">sonnet</td><td>기획, 개발(DB/BE/FE), 테스트, 문서화, DevOps, CTO 대화</td></tr>
+          <tr><td>설계, 아키텍처 분석, 복잡한 판단이 필요한 작업</td><td class="mono" style="color:var(--human);">opus</td><td>설계, PL(인터페이스 계약), 보안 검토, PM(실패 원인 분류·티어 판단)</td></tr>
+        </tbody>
+      </table>
+      <p class="section-sub" style="margin:14px 0 0;">⚠️ Pro/Max 등 구독 플랜에 따라 opus 사용 가능 여부가 다를 수 있어, 실제로는 로컬에서 <code>claude</code> 실행 후 <code>/model</code>로 사용 가능한 모델을 확인하고 필요시 위 매핑을 조정해야 합니다.</p>
+    </div>
+
+    <div class="decision-block">
+      <div class="decision-head"><h3>확인 · 검증이 더 필요한 항목</h3><span class="badge pending">TO VERIFY</span></div>
+      <div class="check-list">
+        <div class="check-item">
+          <div><div class="tier">최우선</div><h4>중앙 사용량 관리자</h4></div>
+          <p>순차 실행으로 결정했지만, 여러 에이전트가 결국 하나의 공유 세션 풀을 이어서 쓰는 구조이므로 각 에이전트가 개별적으로 리셋 시각을 추정하지 않고 PM(또는 별도 관리자)이 단일하게 추적해야 함.</p>
+        </div>
+        <div class="check-item">
+          <div><div class="tier">최우선</div><h4>5시간 캡 vs 주간 캡 구분</h4></div>
+          <p>에러 메시지에서 어떤 종류의 한도인지 구분해서 파싱해야 함. 구분 없이 자동 대기만 하면 주간 캡 상황에서 재시도 폭풍이 발생할 수 있음.</p>
+        </div>
+        <div class="check-item">
+          <div><div class="tier">초기 검증 필수</div><h4>실제 한도 메시지 형식 테스트</h4></div>
+          <p>Anthropic이 정확한 토큰 할당량과 리셋 시각을 기계가 읽을 수 있는 형태로 제공한다는 보장이 없음. 실제로 헤드리스 모드에서 한도에 걸렸을 때 반환되는 메시지 형식을 직접 테스트 후 파싱 로직 설계 필요.</p>
+        </div>
+        <div class="check-item">
+          <div><div class="tier">초기 설계</div><h4>체크포인트 세분화</h4></div>
+          <p>현재 단위는 "단계(stage)" 단위인데, 한 단계 안에서도 수십 번의 파일 수정이 있을 수 있음. 단계 도중 한도에 걸렸을 때 재개 지점을 더 세밀하게(파일 단위 등) 기록할지 결정 필요.</p>
+        </div>
+        <div class="check-item">
+          <div><div class="tier">초기 설계</div><h4>원자적 파일 쓰기</h4></div>
+          <p>공유 상태 파일(pipeline_status.json)은 PM만 쓰게 하고, temp → rename 방식의 원자적 쓰기로 손상 방지 필요.</p>
+        </div>
+        <div class="check-item">
+          <div><div class="tier">초기 설계</div><h4>히스토리 압축 전략</h4></div>
+          <p>에이전트별 히스토리를 계속 쌓기로 확정했으므로, 컨텍스트 윈도우 초과 에러를 막기 위한 오래된 대화 요약 · 압축 로직을 처음부터 설계에 포함해야 함.</p>
+        </div>
+        <div class="check-item">
+          <div><div class="tier">초기 설계</div><h4>에이전트 스킵 시 의존성 검증</h4></div>
+          <p>사용자가 특정 에이전트를 제외했을 때, 다음 단계가 필요한 입력을 못 받는 상황(예: 코드 리뷰 없이 테스트 진행)을 PM이 실행 전에 검증해야 함. 01번 탭 프로토타입은 선행 단계 제외 시 경고만 표시하지만, 실제 프로그램에서는 "경고 후 진행" 허용 범위와 "무조건 차단" 범위를 구분해서 정의 필요.</p>
+        </div>
+        <div class="check-item">
+          <div><div class="tier">초기 설계</div><h4>제외된 에이전트의 산출물 대체</h4></div>
+          <p>예: 보안 검토를 제외하면 요구사항 추적 매트릭스에서 그 항목을 "미실시"로 명시할지, 아니면 완전히 생략할지 — 고객사 납품 시 책임 소재와 직결되므로 정책 확정 필요.</p>
+        </div>
+        <div class="check-item">
+          <div><div class="tier">초기 설계</div><h4>CTO 상태 요약 카드 스펙</h4></div>
+          <p>CTO가 원본 히스토리 대신 참고할 "상태 요약 카드"의 필드 구성(status/summary/open_issues 등)과 갱신 시점(매 턴 vs 단계 완료 시)을 확정해야 함. 이게 부실하면 CTO가 부정확한 답을 하거나, 결국 원본을 다시 다 읽게 되어 05번 탭에서 설계한 경량화 효과가 사라짐.</p>
+        </div>
+        <div class="check-item">
+          <div><div class="tier">초기 검증 필수</div><h4>JSONL 세션 로그 실제 필드 형식 확인</h4></div>
+          <p>~/.claude/projects/**/*.jsonl의 message.usage.input_tokens/output_tokens 등 필드 경로가 실제 로컬 파일과 일치하는지 확인 필요. Claude Code 버전에 따라 구조가 다를 수 있어 방어적으로 파싱해야 함 (engine/lib/usageMonitor.js — 대시보드는 dashboard/lib/engineBridge.ts로 이 파일을 그대로 재사용).</p>
+        </div>
+        <div class="check-item">
+          <div><div class="tier">참고</div><h4>OAuth usage API (미채택)</h4></div>
+          <p>조사 중 Claude Code가 내부적으로 쓰는 것으로 보이는 비공식 엔드포인트(api.anthropic.com/api/oauth/usage)를 로컬 저장 토큰으로 직접 호출해 5시간/주간 한도 %까지 얻는 방법도 발견됨. 다만 비공식·미문서화 API라 버전 변경에 취약해 채택하지 않음 — 필요하면 이 방식으로 확장 가능.</p>
+        </div>
+        <div class="check-item">
+          <div><div class="tier">초기 설계</div><h4>티어별 구체적 임계값</h4></div>
+          <p>02번 탭의 "자율 해결 우선 원칙"으로 큰 틀(Tier 1/2/3)은 확정했으나, Tier 1 재시도 횟수, Tier 2 "합리적 가정"의 구체적 기준, Tier 3 "비가역적 변경"의 판단 규칙은 아직 수치·규칙으로 확정되지 않음. 이 기준이 느슨하면 잘못된 가정이 쌓이고, 너무 엄격하면 Tier 2가 사실상 Tier 3처럼 작동해 사람 개입 최소화 원칙이 무색해짐.</p>
+        </div>
+        <div class="check-item">
+          <div><div class="tier">최우선</div><h4>지식 베이스 일반화 기준 & 격리 정책</h4></div>
+          <p>이슈를 어디까지 "일반화"해야 고객사 고유 정보 유출 없이 재사용 가능한지 구체적 기준 필요. 앞서 확정한 "프로젝트별 격리" 원칙과 충돌하지 않도록, 저장 전 반드시 사람 검토를 거치는 절차로 시작하는 것을 권장.</p>
+        </div>
+        <div class="check-item">
+          <div><div class="tier">초기 설계</div><h4>지식 베이스 품질 관리</h4></div>
+          <p>검증 안 된 해결책이 축적되면 다음 프로젝트에 오히려 잘못된 방향을 제시할 수 있음. 사람이 승인한 이슈만 반영하는 게이트가 필요.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 7: ISSUE HISTORY ============ -->
+  <section class="panel" id="tab-issuehistory">
+    <p class="section-sub">파이프라인 진행 중 발생한 모든 이슈의 기록입니다. 에이전트끼리 자체 해결한 것과 사람 결정이 필요했던 것을 구분해서 남깁니다. CTO 에이전트가 "사람 결정 필요" 항목을 사람에게 먼저 알립니다.</p>
+
+    <div class="filter-row">
+      <div class="filter-chip active">전체</div>
+      <div class="filter-chip">자동 해결</div>
+      <div class="filter-chip">사람 결정 대기</div>
+      <div class="filter-chip">사람 결정 완료</div>
+    </div>
+
+    <div class="issue-list">
+
+      <div class="issue-card">
+        <div class="issue-top">
+          <span class="issue-time">07/27 14:12</span>
+          <span class="issue-stage">07 · 단위 테스트</span>
+          <span class="issue-req">REQ-014</span>
+          <span class="issue-class bug">구현 버그</span>
+          <span class="issue-status pending"><span class="sdot"></span>사람 결정 대기</span>
+        </div>
+        <div class="issue-title">결제 API 응답 타임아웃 처리 방식이 요구사항과 다르게 구현됨</div>
+        <div class="issue-desc">개발 에이전트가 3회 재시도했으나 동일 실패 반복. PM이 "구현 버그 아님"으로 판단해 설계 결함으로 재분류.</div>
+        <div class="issue-resolution">PM 판단: <b>설계 결함 가능성</b> — 외부 결제사 API의 실제 타임아웃 스펙이 최초 설계 문서와 다름. 재설계 방향 2가지 중 선택이 필요해 사람에게 에스컬레이션됨.</div>
+      </div>
+
+      <div class="issue-card">
+        <div class="issue-top">
+          <span class="issue-time">07/27 13:40</span>
+          <span class="issue-stage">06 · 코드 리뷰</span>
+          <span class="issue-req">REQ-009</span>
+          <span class="issue-class bug">구현 버그</span>
+          <span class="issue-status resolved"><span class="sdot"></span>자동 해결</span>
+        </div>
+        <div class="issue-title">네이밍 컨벤션이 기술 스택 가이드와 불일치</div>
+        <div class="issue-desc">코드 리뷰 에이전트가 camelCase 대신 snake_case 사용 발견.</div>
+        <div class="issue-resolution">개발 에이전트로 반려 → 1회 재시도 만에 수정 완료. 사람 개입 없이 종료.</div>
+      </div>
+
+      <div class="issue-card">
+        <div class="issue-top">
+          <span class="issue-time">07/27 11:05</span>
+          <span class="issue-stage">03 · 분석 / 설계</span>
+          <span class="issue-req">REQ-002</span>
+          <span class="issue-class req">요구사항 모호</span>
+          <span class="issue-status decided"><span class="sdot"></span>사람 결정 완료</span>
+        </div>
+        <div class="issue-title">"실시간 처리"의 구체적 지연 허용 범위가 문서에 없음</div>
+        <div class="issue-desc">설계 에이전트가 초 단위 폴링으로 임의 가정 후 진행하려 했으나, 모호성 임계값을 넘어 기획 에이전트가 질문으로 전환.</div>
+        <div class="issue-resolution">사람 결정: <b>3초 이내 폴링 기준으로 확정</b> (07/27 11:32). 설계 문서에 반영 후 재개.</div>
+      </div>
+
+    </div>
+
+    <p class="section-sub" style="margin-top:28px;margin-bottom:0;">위 3건은 실제 로그가 아닌 예시입니다. 실제 구현 시 각 이슈 카드는 PM의 <b>reasoning 필드</b>(라우팅 판단 근거)와 REQ-ID를 그대로 이어받아 자동 생성되어야 하며, 사람이 결정을 입력하면 <b>issue_status: decided</b>로 갱신되고 해당 내용이 그대로 요구사항 추적 매트릭스에도 반영되어야 합니다.</p>
+  </section>
+
+  <!-- ============ TAB 8: KNOWLEDGE BASE ============ -->
+  <section class="panel" id="tab-knowledgebase">
+    <p class="section-sub">한 프로젝트의 이슈 히스토리(원인 · 이슈 · 해결법)를 다음 프로젝트가 참고할 수 있는 지식으로 축적합니다. 목표는 같은 실수를 반복하지 않아 <b>토큰 사용량과 소요 시간을 줄이는 것</b>입니다.</p>
+
+    <div class="kb-flow">
+      <div class="kb-stage">
+        <div class="kb-n">STEP 1</div>
+        <h4>이슈 히스토리 (07번 탭)</h4>
+        <p>프로젝트 진행 중 쌓인 원인 · 이슈 · 해결법 원본 기록</p>
+      </div>
+      <div class="kb-arrow">→</div>
+      <div class="kb-stage">
+        <div class="kb-n">STEP 2</div>
+        <h4>패턴 일반화</h4>
+        <p>고객사 · 프로젝트 고유 정보를 제거하고, 재사용 가능한 기술 패턴만 추출</p>
+      </div>
+      <div class="kb-arrow">→</div>
+      <div class="kb-stage">
+        <div class="kb-n">STEP 3</div>
+        <h4>지식 베이스 저장</h4>
+        <p>임베딩 후 벡터DB에 저장 (기술스택 · 이슈유형별 태깅)</p>
+      </div>
+      <div class="kb-arrow">→</div>
+      <div class="kb-stage">
+        <div class="kb-n">STEP 4</div>
+        <h4>다음 프로젝트에서 조회</h4>
+        <p>설계 · 개발 · 테스트 에이전트가 작업 시작 전 유사 이슈를 먼저 검색</p>
+      </div>
+    </div>
+
+    <div class="kb-compare">
+      <div class="kb-col good">
+        <h4 style="color:var(--ok);">✓ 지식 베이스에 저장해도 되는 것</h4>
+        <ul>
+          <li>기술 스택 단위의 일반화된 이슈 패턴 (예: "특정 결제 API 연동 시 타임아웃 스펙을 설계 전에 실측 확인해야 함")</li>
+          <li>재발한 코드 컨벤션 · 아키텍처 실수와 그 해결법</li>
+          <li>PM의 재시도 임계값 · 라우팅 판단이 효과적이었는지에 대한 통계적 교훈</li>
+          <li>사람이 검토 · 승인한 이슈만 (자동 해결 건은 검증 후 반영)</li>
+        </ul>
+      </div>
+      <div class="kb-col bad">
+        <h4 style="color:var(--risk);">✗ 저장하면 안 되는 것</h4>
+        <ul>
+          <li>고객사명, 계약 조건, 비즈니스 로직 등 프로젝트 고유 정보</li>
+          <li>REQ-ID 원문, 실제 코드 조각, 민감한 설정값(API 키 등)</li>
+          <li>사람 검증 없이 에이전트가 "이렇게 하면 된다"고 자체 판단한 미검증 해결책</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="kb-example">
+      <div class="kb-tag-row">
+        <span class="kb-tag">기술스택: Node.js / NestJS</span>
+        <span class="kb-tag">이슈유형: 외부 API 연동</span>
+        <span class="kb-tag">발생 빈도: 3개 프로젝트</span>
+      </div>
+      <div class="kb-body">
+        <div class="kb-label">원인</div><div class="kb-val">설계 단계에서 외부 API 문서만 참고하고 실제 응답 시간을 측정하지 않음</div>
+        <div class="kb-label">이슈</div><div class="kb-val">타임아웃 처리 로직이 실제 운영 환경과 맞지 않아 테스트 단계에서 반복 실패</div>
+        <div class="kb-label">해결법</div><div class="kb-val">설계 에이전트가 외부 API를 포함한 설계 시, 반드시 사전 실측 결과를 요구사항에 포함하도록 체크리스트 항목 추가</div>
+        <div class="kb-label">기대 효과</div><div class="kb-val">동일 유형 이슈 재발 시 개발~테스트 재시도 루프 1~2회 감소 추정</div>
+      </div>
+    </div>
+
+    <p class="section-sub" style="margin-top:8px;margin-bottom:0;">위 예시 카드처럼, 다음 프로젝트의 설계 에이전트가 "외부 API 연동" 작업을 시작하기 전 이 지식 베이스를 조회하면 처음부터 실측 확인 단계를 포함해서 설계하게 되어, 같은 이슈로 인한 재작업(재시도 루프, 그에 따른 토큰 소모와 시간)을 줄일 수 있습니다.</p>
+  </section>
+
+  <!-- ============ TAB 9: IMPLEMENTATION LOG ============ -->
+  <section class="panel" id="tab-implementation">
+    <p class="section-sub">이 문서로 설계를 정리한 뒤 실제 코드(ai-agent-pipeline 프로젝트)로 옮기면서, 사용해보고 나서 드러난 문제를 그때그때 고친 내역입니다. 설계 문서와 실제 구현이 어긋나지 않도록 여기에 모아둡니다.</p>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>CTO 대화 — 규칙 기반 스텁 → 실제 Claude Code 연동</h4><span class="file-tag">dashboard/app/api/cto/route.ts</span></div>
+      <div class="before">이전: 상태 요약 카드를 문자열로만 조합해서 보여주는 가짜 응답</div>
+      <div class="after">이후: engine/prompts/cto.md를 시스템 프롬프트로 로컬 claude CLI를 실제 호출. 평소엔 상태 요약 카드만, "더 자세히" 요청 시에만 해당 에이전트 원본 히스토리 최근 6턴을 추가로 참고. CLI 미설치 시 자동으로 이전 규칙 기반 응답으로 폴백.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>요구사항 파일 업로드 → 에이전트 선택 → 시작이 하나로 연결되지 않음</h4><span class="file-tag">AgentSelectTab.tsx</span></div>
+      <div class="before">이전: state/project_input.md를 직접 손으로 편집해야 했고, 엔진은 터미널에서 별도로 실행해야 했음</div>
+      <div class="after">이후: "① 프로젝트 시작" 탭 하나에서 여러 파일 업로드 → 프리셋/커스텀 선택 → "파이프라인 시작" 버튼까지 이어짐. 버튼을 누르면 대시보드가 엔진 프로세스를 직접 실행(child_process spawn)하고, 같은 탭에서 실시간 로그를 볼 수 있음. 터미널 두 개를 띄울 필요가 없어짐.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>업로드 파일 포맷 — 엔진이 미리 텍스트로 읽으려던 설계 오류</h4><span class="file-tag">engine/agents/planning.js · claudeClient.js</span></div>
+      <div class="before">이전: 워드/엑셀/PPT 같은 바이너리 파일을 엔진이 fs.readFileSync(..., 'utf-8')로 미리 읽으려 함 → 깨진 내용만 남음</div>
+      <div class="after">이후: 파일 내용을 엔진이 미리 읽지 않고 <b>파일 경로 목록만</b> 기획 에이전트에게 전달. Claude Code가 이미 갖고 있는 파일 읽기 능력(스킬)으로 워드/엑셀/PPT/PDF를 형식에 맞게 직접 읽고 분석하도록 변경. Claude Code의 cwd를 프로젝트 루트로 지정해 state/uploads/ 접근이 가능하게 함.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>"사람 승인하기" 버튼에 내용이 없었음</h4><span class="file-tag">PipelineTab.tsx</span></div>
+      <div class="before">이전: 버튼만 있고 무엇을 승인하는지 보여주는 내용이 없어 "이게 뭘 의미하냐"는 혼란 발생</div>
+      <div class="after">이후: 요구사항 확정 체크포인트는 REQ-ID 표(제목/설명/우선순위)로 전체 목록을 보여주고, 가정한 부분(⚠)·확인 필요 질문(❓)도 함께 표시. 설계/납품 등 다른 체크포인트는 산출물 전체를 구조화된 형태로 펼쳐서 보여줌 — 승인 버튼은 "이 내용을 보고 다음 단계로 진행해도 좋다"는 의미로 명확해짐.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>산출물이 길 때 화면에서만 봐야 하는 문제</h4><span class="file-tag">app/api/export/[checkpoint]/route.ts</span></div>
+      <div class="before">이전: 승인 화면 안에서만 스크롤로 확인 가능</div>
+      <div class="after">이후: 각 체크포인트 옆 "⬇ HTML로 다운로드" 버튼으로, 대시보드와 같은 다크 테마의 독립 HTML 파일을 받아서 따로 열어보거나 공유할 수 있게 함.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>커스텀 선택 시 이전 프리셋의 일부만 남던 버그</h4><span class="file-tag">AgentSelectTab.tsx</span></div>
+      <div class="before">이전: "커스텀"을 눌러도 직전에 골랐던 프리셋(예: 빠른 프로토타입)의 부분집합이 그대로 남아있었음</div>
+      <div class="after">이후: 커스텀을 누르면 전체 에이전트가 기본으로 켜지도록 수정. 사람이 원하는 것만 골라서 끄는 방식으로 동작.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>커스텀에서도 "필수" 단계는 체크 해제가 안 되던 문제</h4><span class="file-tag">AgentSelectTab.tsx</span></div>
+      <div class="before">이전: 기획/설계/납품 단계는 checkbox disabled 처리되어, 커스텀을 골라도 사람이 강제로 못 뺐음 (커스텀의 의미와 상충)</div>
+      <div class="after">이후: disabled를 완전히 제거. 어떤 단계든 자유롭게 켜고 끌 수 있게 하고, 핵심 단계를 빼면 "빼면 뒤 단계가 정상 동작하지 않을 수 있다"는 경고만 보여주고 막지는 않음.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>루트 install:all 스크립트가 자기 자신은 설치 안 함</h4><span class="file-tag">package.json</span></div>
+      <div class="before">이전: npm run install:all이 dashboard/engine만 설치하고 루트의 concurrently(devDependency)는 설치 안 해서 npm run dev가 실패</div>
+      <div class="after">이후: install:all에 루트 npm install도 포함. 이후 대시보드가 엔진을 직접 실행하는 방식으로 바뀌면서 concurrently 필요성 자체도 줄어듦.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>의존성 경고가 딱 2가지 경우에만 하드코딩되어 있었음</h4><span class="file-tag">AgentSelectTab.tsx</span></div>
+      <div class="before">이전: pipeline.config.json에 각 단계의 dependsOn이 이미 정의돼 있었는데, 경고 로직은 그걸 안 쓰고 "보안검토 없는 배포", "문서화 없는 납품" 이 2가지 케이스만 하드코딩되어 있었음. 예를 들어 기획을 빼고 설계만 켜도 경고가 안 떴음.</div>
+      <div class="after">이후: 켜진 모든 단계에 대해 dependsOn을 실제로 검사해서, 앞 단계가 꺼져 있으면 어떤 조합이든 자동으로 경고가 뜨도록 일반화. 기존 2가지 커스텀 경고는 별도로 유지하고 추가로 표시. 여전히 막지는 않고 경고만 — 실제로 실행하면 엔진은 에러 없이 돌지만, 앞 단계 산출물이 없으면 다음 단계 품질이 떨어질 수 있음(예: 기획 없이 설계하면 요구사항 컨텍스트 없이 진행됨).</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>Claude Code로 맥락 이어가기용 CLAUDE.md 추가</h4><span class="file-tag">CLAUDE.md</span></div>
+      <div class="before">이전: 대화 내용/설계 문서를 Claude Code에 넘기려면 매번 프롬프트에 전체를 붙여넣어야 했음</div>
+      <div class="after">이후: 프로젝트 루트에 CLAUDE.md 추가 — Claude Code가 실행 시 자동으로 읽는 표준 파일. docs/requirements.html · README.md · ARCHITECTURE.md 읽는 순서와 현재 구현 상태 요약을 담아둠.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>어떤 AI 모델을 쓸지 지정하는 설정이 없었음</h4><span class="file-tag">pipeline.config.json · claudeClient.js</span></div>
+      <div class="before">이전: 에이전트 12개가 전부 Claude Code 기본 모델만 사용, 역할별로 다른 모델(Opus/Sonnet/Haiku)을 쓸 방법이 코드에 없었음</div>
+      <div class="after">이후: pipeline.config.json에 models 섹션 추가 — 역할별로 모델을 지정하면 --model 플래그로 전달됨. 지정 안 하면 기존처럼 Claude Code 기본값 사용. CTO 대화도 동일하게 지정 가능(models.cto).</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>작업 성격별 haiku/sonnet/opus 매핑 실제 적용</h4><span class="file-tag">pipeline.config.json</span></div>
+      <div class="before">이전: models 섹션은 있었지만 전부 비어있어(null) 전 에이전트가 기본 모델만 사용</div>
+      <div class="after">이후: 06번 탭 "모델 선택 기준" 표대로 실제 값 채움 — 단순조회(코드리뷰·납품패키징)는 haiku, 구현작업(기획·개발·테스트·문서화·DevOps·CTO)은 sonnet, 설계·복잡판단(설계·PL·보안검토·PM)은 opus. Pro/Max 플랜별 opus 사용 가능 여부는 다를 수 있어 로컬에서 확인 필요.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>Claude 로그인 여부를 체크하는 코드가 없었음</h4><span class="file-tag">engine/lib/authCheck.js</span></div>
+      <div class="before">이전: 로그인 안 된 상태로 파이프라인을 실행하면 정확히 뭐가 문제인지 알기 어려운 에러로 실패했음</div>
+      <div class="after">이후: claude auth status 명령(종료코드 0=로그인됨/1=안됨)으로 시작 전 확인. 엔진 시작 시(orchestrator.js), 대시보드 "시작" 버튼(api/engine/start), CTO 대화(api/cto) 3곳 모두에서 실제 모드일 때만 체크하고, 드라이런은 건너뜀. 미로그인 시 "claude auth login 먼저 실행하세요"라고 명확히 안내.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>개발 언어/프레임워크/프로젝트 위치를 지정하는 기능이 없었음</h4><span class="file-tag">techstack API · tech_stack.json</span></div>
+      <div class="before">이전: design.js가 techConstraints를 받는 구조는 있었지만 실제로 이걸 채워서 넣는 UI도, 값도 없어 항상 빈 값으로 진행됨. 코드가 어디에 만들어지는지(output_path)도 지정할 곳이 없었음.</div>
+      <div class="after">이후: "① 프로젝트 시작" 탭에 "② 기술 스택 설정" 카드 추가 — 언어/프레임워크/프로젝트 유형/UI프레임워크/ORM/출력 위치를 직접 입력. state/tech_stack.json에 저장되고, 오케스트레이터가 이를 읽어 설계·PL·개발·리뷰 에이전트 프롬프트에 실제로 포함시킴. 특히 개발 에이전트는 반드시 지정된 output_path에만 파일을 생성하도록 지시받음.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>기술 스택 추천 기능 추가</h4><span class="file-tag">api/techstack/recommend</span></div>
+      <div class="before">이전: 사람이 기술 스택을 처음부터 끝까지 직접 정해야 했음</div>
+      <div class="after">이후: "AI에게 추천받기" 버튼 — 업로드된 요구사항 파일(+기획 에이전트 분석 결과가 있으면 그것도)을 기반으로 Claude가 언어/프레임워크/프로젝트유형/UI프레임워크/ORM/추천이유를 제안. 자동으로 입력칸에 채워지진 않고 참고용으로 보여줘서, 최종 결정은 사람이 하도록 함.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>output_path를 지정해도 실제로 그 위치에 생성된다는 보장이 없었음</h4><span class="file-tag">claudeClient.js · dev.js · orchestrator.js</span></div>
+      <div class="before">이전: 프롬프트에 경로 텍스트만 적어 넘기고, ① 폴더가 없으면 안 만들어짐 ② Claude Code의 작업 디렉토리(cwd)는 항상 ai-agent-pipeline 프로젝트 자체로 고정되어 있어서, 다른 드라이브/경로를 지정하면 그 밖에 파일을 쓰는 게 권한상 애매하게 처리될 수 있었음.</div>
+      <div class="after">이후: (1) orchestrator.js가 각 단계 실행 전 output_path 폴더를 fs.mkdirSync로 미리 생성 (2) 개발 에이전트 호출 시에는 output_path 자체를 Claude Code의 작업 디렉토리(cwd)로 지정해서 실행 — 예: output_path를 "D:\Project\프로젝트폴더명"으로 설정하면 정확히 그 폴더 안에 산출물이 생성됨. callAgent/runAgentStage 모두 호출별 cwd를 받을 수 있도록 확장.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>토큰 사용량이 실제로는 전혀 표시되지 않았음</h4><span class="file-tag">usageMonitor.js · UsageBar.tsx</span></div>
+      <div class="before">이전: /usage 명령을 호출하려 했으나, 이 명령은 인터랙티브 세션 전용이라 헤드리스(-p) 모드에서는 요청 자체가 안 나감(Anthropic 공식 문서로 확인됨). statusline 파일은 아무도 만들어주지 않았고, 세션 로그는 존재 여부만 확인하고 실제 파싱은 TODO로 남아있어 결국 아무 데이터도 못 얻었음.</div>
+      <div class="after">이후: ~/.claude/projects/**/*.jsonl 로컬 세션 로그를 직접 파싱해서 최근 5시간·7일간 실제 입력/출력 토큰 수와 메시지 건수를 집계. 파이프라인 시작 시(로그인 체크 직후) 1회 자동 체크하고, 대시보드에는 "지금 체크" 버튼으로 수동 재확인 가능. 플랜별 정확한 한도가 공개되어 있지 않아 "한도 대비 %"는 표시하지 않고 원시 토큰 수치를 그대로 보여줌 — 가짜 추정치보다 정직한 방식.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>사용량 표시 방식을 바꾸면서 리셋 시각 추정이 끊어져 있었음</h4><span class="file-tag">usageMonitor.js · orchestrator.js</span></div>
+      <div class="before">이전: 한도 도달 시 리셋 시각을 usage.session_started_at 필드로 계산했는데, 사용량 파싱 방식을 로컬 로그 기반으로 바꾸면서 이 필드 자체를 없애버려 항상 undefined가 되어 "지금 이 순간부터 5시간 후"로만 계산되고 있었음 (자동 재개 자체는 되지만 실제보다 더 오래 기다릴 수 있음).</div>
+      <div class="after">이후: 한도 도달 시점에 사용량을 다시 파싱해서, 현재 5시간/7일 윈도우 안에서 가장 오래된 실제 사용 시점(earliest_ts)을 기준으로 리셋 시각을 추정하도록 재연결. 예: 2시간 전부터 사용 중이었다면 "지금부터 5시간 후"가 아니라 "지금부터 3시간 후"로 더 정확하게 추정. 가짜 로그로 실제 계산 검증 완료.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>기존 프로젝트를 "수정"하는 경우가 아예 고려되지 않았음</h4><span class="file-tag">techstack API · planning/design/pl/dev.js</span></div>
+      <div class="before">이전: output_path는 항상 "새로 만들 빈 폴더"로만 취급됨. 실제로는 이미 존재하는 프로젝트에 기능 추가·버그 수정을 해야 하는 경우가 훨씬 흔한데, 이 시나리오 자체가 설계에 없었음.</div>
+      <div class="after">이후: "② 기술 스택 설정"에 프로젝트 유형(신규/기존 수정) 선택 추가.<br>
+        · <b>기존 수정 모드</b>에서는 output_path가 실제로 존재하는지 먼저 검증하고, 없으면 폴더를 만들지 않고 에러로 멈춤(오타로 엉뚱한 빈 폴더가 새로 생기는 사고 방지).<br>
+        · 업로드 파일은 "전체 요구사항"이 아니라 "변경 요청"으로 취급하도록 기획 에이전트 프롬프트 조정.<br>
+        · 설계·PL·개발 에이전트는 기존 파일 구조·컨벤션을 먼저 읽고 그 위에서 최소 범위로만 변경하도록 지시받음.<br>
+        · Git 저장소 사용을 권장(변경사항을 diff로 검토 가능하도록).<br>
+        · 유지보수 전용 프리셋("기존 프로젝트 수정") 추가 — 문서화/배포/납품패키징 등은 기본 제외.<br>
+        경로 존재 여부 미검증/검증 두 시나리오 모두 실제 테스트 완료.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>기존 프로젝트 수정 시 기술스택을 안 채워도 자동 판단하도록 개선</h4><span class="file-tag">AgentSelectTab.tsx · design.js · dev.js</span></div>
+      <div class="before">이전: 기존 프로젝트 모드를 추가했지만, 언어/프레임워크 등 필드를 여전히 다 채워야 하는 것처럼 보였음</div>
+      <div class="after">이후: "기존 프로젝트 수정"을 고르면 언어·프레임워크·프로젝트유형·UI프레임워크·ORM 필드가 기본적으로 접힌 "(선택) 힌트" 영역으로 이동하고, <b>경로만 입력하면 됨</b>. 비어있으면 설계·개발 에이전트 프롬프트에 "폴더 안 파일(.csproj, package.json 등)을 보고 언어/프레임워크를 스스로 판단하라"는 지침이 자동으로 추가됨. 빈 값 조합으로 실제 드라이런 테스트 완료.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>토큰 사용량 % 표시 추가 (실험적)</h4><span class="file-tag">usageMonitor.js · UsageBar.tsx</span></div>
+      <div class="before">이전: 로컬 로그 기반 원시 토큰 수치만 표시, 한도 대비 %는 제공하지 않음</div>
+      <div class="after">이후: CLAUDE_CODE_OAUTH_TOKEN 환경변수(claude setup-token으로 발급)가 설정되어 있으면, 비공식 API(api.anthropic.com/api/oauth/usage)를 통해 5시간/7일 한도 대비 %를 추가로 조회해서 원시 수치 아래에 표시. 문서화되지 않은 API라 실패해도 조용히 숨겨지고 기존 원시 수치 표시는 그대로 유지됨.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>입력/출력 토큰 숫자가 어느 쪽인지 헷갈렸음</h4><span class="file-tag">UsageBar.tsx</span></div>
+      <div class="before">이전: "3,100 / 1,300"처럼 슬래시로만 구분되어 있어 왼쪽/오른쪽이 입력인지 출력인지 라벨이 작고 불명확했음</div>
+      <div class="after">이후: "입력"/"출력" 라벨을 각 숫자 위에 명확히 분리 표시하도록 변경.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>참고용 기존 코드/프로젝트를 알려줄 방법이 없었음</h4><span class="file-tag">techstack API · design.js · dev.js</span></div>
+      <div class="before">이전: 개발 시 참고하고 싶은 기존 코드(스타일·패턴 예시)를 전달할 방법이 없었음. ①번 파일 업로드는 요구사항 문서용이라 코드 레퍼런스 용도로는 성격이 맞지 않음.</div>
+      <div class="after">이후: "② 기술 스택 설정"에 "참고 코드 레퍼런스" 항목 추가 — 브라우저 업로드가 아니라 <b>로컬 경로를 입력</b>하는 방식(로컬 프로그램이라 폴더 전체를 올릴 필요 없이 Claude Code가 경로를 직접 읽으면 됨). 여러 개 추가 가능. 설계·개발 에이전트 프롬프트에 "이 경로들은 스타일·패턴 참고용이며 직접 수정하지 말 것"이라는 지침과 함께 전달됨. output_path(수정 대상)와는 명확히 분리됨. 실제 드라이런 테스트 완료.</div>
+    </div>
+
+    <div class="impl-item" style="border-left-color: var(--risk);">
+      <div class="impl-head"><h4>🔴 [크리티컬] 실패해도 "완료"로 넘어가던 버그</h4><span class="file-tag">orchestrator.js</span></div>
+      <div class="before">이전: 12단계 중 개발(3)·리뷰·테스트(2) 6개만 실패 시 PM 라우팅(재시도/에스컬레이션)이 걸려있었고, 기획·설계·PL·보안·문서화·배포·납품 7개 단계는 실패해도(JSON 파싱 실패 등) 체크 없이 그냥 "완료"로 넘어갔음. 기획이 needs_clarification(질문 있음)으로 응답해도 아무도 그 질문을 사람에게 안 보여주고 진행됨. 시니어 리뷰 중 발견.</div>
+      <div class="after">이후: 모든 단계 공통으로 result.status가 failed/fail이면 이슈 히스토리에 기록 후 사람 승인 대기로 멈추고, needs_clarification이면 질문 내용과 함께 마찬가지로 사람에게 확인받도록 수정. 기획 단계 강제 실패를 시뮬레이션해서 실제로 멈추고 이슈가 기록되는 것까지 검증 완료.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>대시보드-엔진 간 파일 경합 조건</h4><span class="file-tag">checkpoint.js · agent_selection.json</span></div>
+      <div class="before">이전: checkpoint.js 주석엔 "pipeline_status.json은 엔진만 쓴다"고 되어 있었지만, 실제로는 대시보드의 에이전트 선택 저장 API도 같은 파일을 read-modify-write하고 있었음 — 두 프로세스가 동시에 쓰면 한쪽 변경이 유실될 수 있는 경합 조건. 시니어 리뷰 중 주석과 실제 코드의 불일치로 발견.</div>
+      <div class="after">이후: enabled_stages를 별도 파일(state/agent_selection.json)로 완전히 분리해서, 엔진과 대시보드가 각자 다른 파일만 쓰도록 경합 자체를 제거.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>✅ 시니어 리뷰 후속 조치 1 — 엔진/대시보드 코드 중복 제거</h4><span class="file-tag">engineBridge.ts</span></div>
+      <div class="before">이전: claudeClient.js↔claudeCli.ts, usageMonitor.js↔usageCheck.ts, 인증체크가 3곳에 중복 구현되어 한쪽만 고치면 어긋날 위험이 있었음</div>
+      <div class="after">이후: dashboard/lib/engineBridge.ts가 engine/lib/*.js를 경로로 직접 require()해서 재사용. 대시보드 전용 복제 파일(claudeCli.ts, usageCheck.ts, 중복 인증함수)은 전부 삭제. 로직은 이제 engine/lib에만 존재. claudeClient.js는 저수준 spawnClaude + callAgent(JSON모드) + callText(텍스트모드)로 리팩터링해서 CTO 대화도 같은 파일을 씀.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>✅ 시니어 리뷰 후속 조치 2 — 전 단계 자동 재시도 통합</h4><span class="file-tag">orchestrator.js</span></div>
+      <div class="before">이전: 개발·리뷰·테스트 6개만 runWithPmRouting(자동재시도/티어라우팅) 적용, 나머지 7개는 실패 시 사람이 수동으로 엔진을 재실행해야 했음</div>
+      <div class="after">이후: 12단계 전부 runWithPmRouting으로 통합. 기획·설계·PL·보안·문서화·배포·납품도 이제 PM의 Tier 분류(자동재시도/가정후진행/사람에스컬레이션)를 동일하게 거침. 정상흐름 회귀 테스트 재확인 완료.</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>✅ 시니어 리뷰 후속 조치 3 — 클라이언트단 입력 검증 추가</h4><span class="file-tag">AgentSelectTab.tsx</span></div>
+      <div class="before">이전: "기존 프로젝트 수정"인데 경로를 안 넣어도 시작 버튼이 눌리고, 엔진이 실행되고 나서야 에러가 났음</div>
+      <div class="after">이후: 시작 전에 대시보드에서 바로 검증 — 기존 모드인데 경로 없음, 또는 output_path 자체가 비어있으면 API 호출 전에 안내 메시지로 막음.</div>
+    </div>
+
+    <div class="impl-item" style="border-left-color: var(--risk);">
+      <div class="impl-head"><h4>🔴 [크리티컬] 헤드리스 모드에서 도구 사용 시 영원히 멈추는 문제</h4><span class="file-tag">claudeClient.js</span></div>
+      <div class="before">이전: buildArgs()에 권한 관련 플래그가 전혀 없었음. 공식 문서 확인 결과, Claude Code는 헤드리스(-p) 모드에서 도구(파일읽기/쓰기/Bash) 사용 전 권한을 미리 승인해두지 않으면 에러 없이 그냥 영원히 멈춤(freeze). 기획/설계/개발 에이전트 전부 파일 작업이 필수라 실제 모드에서 첫 파일 작업 시점에 파이프라인 전체가 조용히 멈췄을 것.</div>
+      <div class="after">이후: 모든 claude 호출에 --permission-mode acceptEdits 기본 적용, 혹시 모를 다른 원인의 무한 대기에 대비해 단일 호출 최대 15분 타임아웃 추가(CallTimeoutError). --dangerously-skip-permissions는 로컬 개발 머신엔 권장되지 않아 사용 안 함. Bash 도구까지 커버되는지는 로컬에서 실제 확인 필요(TO VERIFY로 남김).</div>
+    </div>
+
+    <div class="impl-item">
+      <div class="impl-head"><h4>🟠 최종 리뷰에서 추가로 발견된 것 (미수정, 인지만)</h4><span class="file-tag">-</span></div>
+      <div class="after">
+        · 지식 베이스: addPattern()이 정의만 되고 실제 호출되는 곳이 없어 08번 탭이 항상 비어있음<br>
+        · Windows에서 detached:true 백그라운드 엔진 프로세스의 신뢰성 미검증 (터미널 종료 시 자식 프로세스 생존 여부)<br>
+        · 프로젝트 간 격리: 설계 문서(06번 탭)엔 "최우선"으로 표시했지만 실제 코드는 state/ 하나로 프로젝트 1개만 처리 가능<br>
+        · 업로드 API 파일 크기 제한 없음, engine.log 무한 누적(로테이션 없음), PID 재사용 경합 가능성(낮은 확률)
+      </div>
+    </div>
+
+    <p class="section-sub" style="margin-top:20px;margin-bottom:0;">이 목록은 실제 사용 중 발견되는 문제를 계속 반영해 나가는 용도입니다 — 새로운 수정이 생기면 여기에 항목을 추가해서 설계 문서와 코드가 계속 같은 내용을 말하도록 유지하세요.</p>
+  </section>
+
+  <footer>
+    <span>multi-agent-dev-pipeline · v3</span>
+    <span>12 stages · 3 human checkpoints · 9 tabs · 9 confirmed + 1 proposed decisions · 8 implementation fixes</span>
+  </footer>
+
+</div>
+
+<script>
+  const buttons = document.querySelectorAll('.tab-btn');
+  const panels = {
+    pipeline: document.getElementById('tab-pipeline'),
+    routing: document.getElementById('tab-routing'),
+    crosscutting: document.getElementById('tab-crosscutting'),
+    agentselect: document.getElementById('tab-agentselect'),
+    ctoarch: document.getElementById('tab-ctoarch'),
+    decisions: document.getElementById('tab-decisions'),
+    issuehistory: document.getElementById('tab-issuehistory'),
+    knowledgebase: document.getElementById('tab-knowledgebase'),
+    implementation: document.getElementById('tab-implementation'),
+  };
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      buttons.forEach(b => b.classList.remove('active'));
+      Object.values(panels).forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      panels[btn.dataset.tab].classList.add('active');
+    });
+  });
+
+  const chips = document.querySelectorAll('.filter-chip');
+  const issueCards = document.querySelectorAll('.issue-card');
+  const statusMap = {'자동 해결':'resolved','사람 결정 대기':'pending','사람 결정 완료':'decided'};
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      chips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      const label = chip.textContent.trim();
+      issueCards.forEach(card => {
+        if(label === '전체'){ card.style.display = ''; return; }
+        const statusEl = card.querySelector('.issue-status');
+        const cls = statusMap[label];
+        card.style.display = statusEl.classList.contains(cls) ? '' : 'none';
+      });
+    });
+  });
+
+  /* ---------- agent selection & dependency check ---------- */
+  const toggles = document.querySelectorAll('.agent-toggle');
+  const selCount = document.getElementById('selCount');
+
+  function isChecked(stage){
+    if(stage === '01' || stage === '12') return true; // 필수
+    const el = document.querySelector('.agent-toggle[data-stage="'+stage+'"]');
+    return el ? el.checked : true;
+  }
+
+  function refresh(){
+    let count = 2; // 01, 12 필수 포함
+    toggles.forEach(t => {
+      const stage = t.dataset.stage;
+      const row = document.getElementById('row-'+stage);
+      if(t.checked){ count++; row.classList.remove('excluded'); }
+      else{ row.classList.add('excluded'); }
+    });
+    selCount.textContent = count;
+
+    // 의존성 경고: 체크된 단계의 선행 단계가 꺼져 있으면 경고 표시
+    toggles.forEach(t => {
+      const stage = t.dataset.stage;
+      const dep = t.dataset.dep;
+      const warn = document.querySelector('.dep-warning[data-warn-for="'+stage+'"]');
+      if(!warn) return;
+      if(t.checked && dep && !isChecked(dep)){
+        warn.classList.add('show');
+      } else {
+        warn.classList.remove('show');
+      }
+    });
+  }
+
+  toggles.forEach(t => t.addEventListener('change', refresh));
+
+  document.getElementById('btnAll').addEventListener('click', () => {
+    toggles.forEach(t => t.checked = true);
+    refresh();
+  });
+  document.getElementById('btnNone').addEventListener('click', () => {
+    toggles.forEach(t => t.checked = false);
+    refresh();
+  });
+
+  refresh();
+</script>
+</body>
+</html>

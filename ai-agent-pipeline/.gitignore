@@ -1,0 +1,13 @@
+node_modules/
+.next/
+*.tmp-*
+dashboard/.env*.local
+npm-debug.log*
+
+# 상태 파일은 구조 예시로 커밋하되, 실제 운영 중 쌓이는 개인/프로젝트 데이터는 제외하고 싶다면
+# 아래 주석을 해제하세요.
+# state/agents/*.json
+# state/issues/issue_history.json
+# state/knowledge/patterns.json
+
+.vs/
